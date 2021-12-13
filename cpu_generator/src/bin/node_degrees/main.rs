@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+
 use clap::{Parser, ValueHint};
 use tracing::info;
 
@@ -11,10 +12,10 @@ struct Args {
     #[clap(short, long, default_value_t = 4)]
     workers: usize,
     /// Number of vertices
-    #[clap(long, default_value_t = 4000)]
+    #[clap(long, default_value_t = 2000)]
     block_size: u64,
     /// Number of vertices
-    #[clap(short, long, default_value_t = 100000)]
+    #[clap(short, long, default_value_t = 10000)]
     vertices: u64,
     /// Alpha value of the probability function
     #[clap(short, long, default_value_t = 1.0)]
@@ -25,9 +26,15 @@ struct Args {
     /// x_min value of the pareto distribution
     #[clap(short, long, default_value_t = 1.0)]
     x_min: f32,
-    #[clap(short, long, parse(from_os_str), value_hint = ValueHint::FilePath, default_value = "/tmp/degrees_distribution.csv")]
-    /// File to write items to
-    pub output: PathBuf,
+    #[clap(short, long, parse(from_os_str), value_hint = ValueHint::FilePath, default_value = "degrees_distribution.csv")]
+    /// File to write degrees_distribution to
+    pub output_degrees_distribution: PathBuf,
+    #[clap(short, long, parse(from_os_str), value_hint = ValueHint::FilePath, default_value = "degrees.csv")]
+    /// File to write degrees to
+    pub output_degrees: PathBuf,
+    #[clap(short, long, parse(from_os_str), value_hint = ValueHint::FilePath, default_value = "edges.csv")]
+    /// File to write edges to
+    pub output_edges: PathBuf,
 }
 
 impl Args {
@@ -62,13 +69,30 @@ fn main() {
     degree_counters.resize(app.vertices as usize, 0usize);
 
     info!("Receiving edges...");
-    for edge_block in edge_receiver {
-        for (i, _) in edge_block {
-            *degree_counters.get_mut(i as usize).unwrap() += 1;
+    {
+        let mut wtr = csv::Writer::from_path(&app.output_edges).unwrap();
+        wtr.write_record(&["edge_i", "edge_j"]).unwrap();
+        for edge_block in edge_receiver {
+            for (i, j) in edge_block {
+                wtr.write_record(&[format!("{}", i), format!("{}", j)]).unwrap();
+                *degree_counters.get_mut(i as usize).unwrap() += 1;
+            }
         }
+        wtr.flush().unwrap();
     }
     info!("All edges received!");
     info!("Degrees: {:?}", degree_counters);
+
+    info!("Writing degree csv...");
+    {
+        let mut wtr = csv::Writer::from_path(&app.output_degrees).unwrap();
+        wtr.write_record(&["node_id", "degree"]).unwrap();
+        for (i, j) in degree_counters.iter().enumerate() {
+            wtr.write_record(&[format!("{}", i), format!("{}", *j)]).unwrap();
+        }
+        wtr.flush().unwrap();
+    }
+    info!("Done writing!");
 
     info!("Waiting for the threads to join...");
     while let Some(h) = handles.pop() {
@@ -77,15 +101,17 @@ fn main() {
     info!("Threads joined!");
 
     info!("Writing degree distribution csv...");
-    let mut wtr = csv::Writer::from_path(&app.output).unwrap();
-    for x in 0..=degree_counters.len() {
-        let s: f64 = degree_counters.iter().filter(|&d| *d > x as usize).count() as f64;
-        let v = s / (degree_counters.len() as f64);
-        let x = x as f64;
-        wtr.write_record(&[format!("{}", x), format!("{}", v)]).unwrap();
-        println!("{},{}", x, v);
+    {
+        let mut wtr = csv::Writer::from_path(&app.output_degrees_distribution).unwrap();
+        wtr.write_record(&["x", "number of nodes with degree > x / number of nodes"]).unwrap();
+        for x in 0..=degree_counters.len() {
+            let s: f64 = degree_counters.iter().filter(|&d| *d > x as usize).count() as f64;
+            let v = s / (degree_counters.len() as f64);
+            let x = x as f64;
+            wtr.write_record(&[format!("{}", x), format!("{}", v)]).unwrap();
+        }
+        wtr.flush().unwrap();
     }
-    wtr.flush().unwrap();
     info!("Done writing!");
 
     //plot::main(degree_counters);

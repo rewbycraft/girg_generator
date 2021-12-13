@@ -10,7 +10,7 @@ struct WorkFun1 {
 
 impl WorkFun for WorkFun1 {
     fn worker_function<F: FnMut(u64, u64)>(&self, start: (u64, u64), end: (u64, u64), params: &GenerationParameters, cb: F) {
-        cpu_generator::worker_function(start, end, params, cb)
+        cpu_generator::worker_function_compute(start, end, params, cb)
     }
 }
 

@@ -73,8 +73,7 @@ pub fn generate_edge(i: u64, j: u64, w_i: f32, p0_i: f32, p1_i: f32, w_j: f32, p
 }
 
 #[inline]
-pub fn worker_function<F: FnMut(u64, u64)>(start: (u64, u64), end: (u64, u64), params: &GenerationParameters, mut cb: F) {
-    todo!("fix bugs");
+pub fn worker_function_compute<F: FnMut(u64, u64)>(start: (u64, u64), end: (u64, u64), params: &GenerationParameters, mut cb: F) {
     let mut i = start.0;
     let mut j = start.1;
 
@@ -94,8 +93,8 @@ pub fn worker_function<F: FnMut(u64, u64)>(start: (u64, u64), end: (u64, u64), p
 
         // Increment i,j
         i += 1;
-        if i >= params.v {
-            i = 0;
+        if i >= params.v.min(end.0) {
+            i = start.0;
             j += 1;
 
             // Re-calculate the params for j.
@@ -103,11 +102,11 @@ pub fn worker_function<F: FnMut(u64, u64)>(start: (u64, u64), end: (u64, u64), p
             p0_j = random::random_property(j, params.seeds[2]);
             p1_j = random::random_property(j, params.seeds[3]);
         }
-        if j >= params.v {
+        if j >= params.v.min(end.1) {
             // We've past the last node.
             break;
         }
-        if i >= end.0 && j >= end.1 {
+        if i >= params.v.min(end.0) && j >= params.v.min(end.1) {
             // We're done.
             break;
         }
