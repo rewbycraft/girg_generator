@@ -1,0 +1,30 @@
+[package]
+name = "cpu_generator"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+crossbeam-channel = "0.5.1"
+fasthash = "0.4.0"
+tracing = "0.1"
+tracing-subscriber = "0.2.0"
+rand = "0.8.4"
+clap = { version = "3.0.0-rc.4", features = ["derive"] }
+
+# Plotting dependencies
+plotters = "0.3.1"
+plotters-cairo = "0.3.1"
+cairo-rs = "^0.9"
+gtk = "^0.9"
+gio = "^0.9"
+
+csv = "1.1.6"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "genperf"
+harness = false
