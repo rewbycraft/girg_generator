@@ -2,6 +2,7 @@ use tracing::info;
 
 pub mod random;
 pub mod threads;
+pub mod blocks;
 
 #[derive(Clone, Debug)]
 pub struct GenerationParameters {
@@ -44,6 +45,14 @@ impl GenerationParameters {
 
     pub fn compute_positions(&self, d: usize) -> Vec<f32> {
         (0..self.v).map(|j| random::random_property(j, self.seeds[2 + d])).collect()
+    }
+
+    pub fn blocks(&self, block_size: u64) -> blocks::BlocksIterator {
+        blocks::BlocksIterator::new(self.v, block_size)
+    }
+
+    pub fn num_blocks(&self, block_size: u64) -> u64 {
+        num_integer::div_ceil(self.v, block_size).pow(2)
     }
 }
 
