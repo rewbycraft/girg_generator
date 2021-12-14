@@ -34,12 +34,16 @@ impl GenerationParameters {
 
     pub fn compute_w(&mut self) {
         info!("Computing W...");
-        self.w = (0..self.v)
-            .map(|i| random::uniform_to_pareto(
-                random::random_property(i, self.seeds[0]),
-                &self.pareto)
-            ).sum();
+        self.w = self.compute_weights().into_iter().sum();
         info!("Computed W = {}", self.w);
+    }
+
+    pub fn compute_weights(&self) -> Vec<f32> {
+        (0..self.v).map(|j| random::uniform_to_pareto(random::random_property(j, self.seeds[0]), &self.pareto)).collect()
+    }
+
+    pub fn compute_positions(&self, d: usize) -> Vec<f32> {
+        (0..self.v).map(|j| random::random_property(j, self.seeds[2 + d])).collect()
     }
 }
 
@@ -61,7 +65,12 @@ pub fn compute_probability(d: f32, w_i: f32, w_j: f32, params: &GenerationParame
             0.0f32
         }
     } else {
-        ((((w_i * w_j) / params.w).powf(params.alpha)) / (d.powf(params.alpha * 2.0f32))).min(1.0f32)
+        (
+            //The main multiplication
+            (((w_i * w_j) / params.w).powf(params.alpha))
+                // 1/dist^(ad)
+                / (d.powf(params.alpha * 2.0f32))
+        ).min(1.0f32)
     }
 }
 
@@ -69,7 +78,7 @@ pub fn compute_probability(d: f32, w_i: f32, w_j: f32, params: &GenerationParame
 pub fn generate_edge(i: u64, j: u64, w_i: f32, p0_i: f32, p1_i: f32, w_j: f32, p0_j: f32, p1_j: f32, params: &GenerationParameters) -> bool {
     let d = compute_distance(p0_i, p1_i, p0_j, p1_j);
     let p = compute_probability(d, w_i, w_j, params);
-    p < random::random_edge(i, j, params.seeds[1])
+    p > random::random_edge(i, j, params.seeds[1])
 }
 
 #[inline]
@@ -119,9 +128,9 @@ pub fn worker_function_pregen<F: FnMut(u64, u64)>(start: (u64, u64), end: (u64, 
     let mut j = start.1;
 
     // Pre-calculate the params for j.
-    let ws: Vec<f32> = (0..params.v).map(|j| random::uniform_to_pareto(random::random_property(j, params.seeds[0]), &params.pareto)).collect();
-    let p0s: Vec<f32> = (0..params.v).map(|j| random::random_property(j, params.seeds[2])).collect();
-    let p1s: Vec<f32> = (0..params.v).map(|j| random::random_property(j, params.seeds[3])).collect();
+    let ws: Vec<f32> = params.compute_weights();
+    let p0s: Vec<f32> = params.compute_positions(0);
+    let p1s: Vec<f32> = params.compute_positions(1);
 
     loop {
         if generate_edge(i,

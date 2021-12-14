@@ -12,13 +12,13 @@ struct Args {
     #[clap(short, long, default_value_t = 4)]
     workers: usize,
     /// Number of vertices
-    #[clap(long, default_value_t = 2000)]
+    #[clap(long, default_value_t = 4000)]
     block_size: u64,
     /// Number of vertices
-    #[clap(short, long, default_value_t = 10000)]
+    #[clap(short, long, default_value_t = 40000)]
     vertices: u64,
     /// Alpha value of the probability function
-    #[clap(short, long, default_value_t = 1.0)]
+    #[clap(short, long, default_value_t = 1.5)]
     alpha: f32,
     /// Alpha value of the pareto distribution
     #[clap(short, long, default_value_t = 1.5)]
