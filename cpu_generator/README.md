@@ -13,10 +13,10 @@ cargo run --package cpu_generator --release --bin node_degrees -- --help
 
 Default values:
 - Number of parallel workers: 4
-- Size of block: 2000
-- Number of vertices: 10000
+- Size of block: 5000
+- Number of vertices: 100000
 - Dimensions: 2
-- alpha (of the girg probability): 1.0
+- alpha (of the girg probability): 1.5
 - beta (alpha of the weights pareto distribution): 1.5
 - x_min (of the weights pareto distribution): 1.0
 - Files get written to current directory
