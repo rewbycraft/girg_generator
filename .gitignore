@@ -116,3 +116,8 @@ degrees.txt
 weights.txt
 p0.txt
 p1.txt
+
+.R*
+degree*
+
+kernel.ptx
