@@ -7,7 +7,7 @@ pub struct GPUThreadState {
     pub current_y: *mut u64,
     pub edges_s: *mut u64,
     pub edges_t: *mut u64,
-    pub edges_size: u32,
+    pub edges_size: u64,
     pub edges_count: *mut u32,
     pub done: *mut bool,
     pub num_threads: u64,

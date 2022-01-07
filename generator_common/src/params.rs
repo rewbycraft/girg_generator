@@ -8,8 +8,6 @@ use no_std_compat::prelude::v1::*;
 
 use super::random;
 
-pub const DIMENSIONS: usize = 2;
-
 #[derive(Clone, Copy, Eq, Ord, PartialOrd, PartialEq, Hash)]
 pub enum SeedEnum {
     Weight,
@@ -17,26 +15,19 @@ pub enum SeedEnum {
     Dimension(usize),
 }
 
-#[derive(Clone, Debug, Copy)]
-#[cfg_attr(not(target_os = "cuda"), derive(cust::DeviceCopy))]
-pub struct GenerationParameters {
-    seeds: [u64; DIMENSIONS + 2],
-    pub pareto: random::ParetoDistribution,
-    pub alpha: f32,
-    pub w: f32,
-    pub v: u64,
-    pub tile_size: u64,
+pub trait SeedGettable {
+    fn get_seed(&self, s: SeedEnum) -> u64;
 }
 
-// #[cfg(not(target_os = "cuda"))]
-// unsafe impl cust::memory::DeviceCopy for GenerationParameters {}
+#[cfg(not(target_os = "cuda"))]
+#[derive(Debug, Clone)]
+pub struct VecSeeds {
+    seeds: Vec<u64>,
+}
 
-impl GenerationParameters {
-    pub fn num_dimensions(&self) -> usize {
-        DIMENSIONS
-    }
-
-    pub fn get_seed(&self, s: SeedEnum) -> u64 {
+#[cfg(not(target_os = "cuda"))]
+impl SeedGettable for VecSeeds {
+    fn get_seed(&self, s: SeedEnum) -> u64 {
         let i = match s {
             SeedEnum::Weight => 0,
             SeedEnum::Edge => 1,
@@ -44,35 +35,113 @@ impl GenerationParameters {
         };
         self.seeds[i]
     }
+}
 
+#[cfg(not(target_os = "cuda"))]
+impl VecSeeds {
     #[cfg(not(target_os = "cuda"))]
-    pub fn new(pareto: random::ParetoDistribution, alpha: f32, v: u64, tile_size: u64) -> Self {
-        let seeds: [u64; DIMENSIONS+2] = random::generate_seeds();
+    pub fn get_dbuffer(&self) -> cust::error::CudaResult<cust::memory::DeviceBuffer<u64>> {
+        cust::memory::DeviceBuffer::from_slice(&self.seeds)
+    }
+    #[cfg(not(target_os = "cuda"))]
+    pub unsafe fn get_dbuffer_async(&self, stream: &cust::stream::Stream) -> cust::error::CudaResult<cust::memory::DeviceBuffer<u64>> {
+        cust::memory::DeviceBuffer::from_slice_async(&self.seeds, stream)
+    }
+}
 
-        Self::from_seeds(pareto, alpha, v, &seeds, tile_size)
+//#[cfg_attr(not(target_os = "cuda"), derive(cust::DeviceCopy))]
+#[derive(Debug, Clone, Copy)]
+pub struct RawSeeds {
+    seeds: *const u64,
+}
+
+#[cfg(not(target_os = "cuda"))]
+unsafe impl cust::memory::DeviceCopy for RawSeeds {}
+
+impl SeedGettable for RawSeeds {
+    fn get_seed(&self, s: SeedEnum) -> u64 {
+        let i = match s {
+            SeedEnum::Weight => 0,
+            SeedEnum::Edge => 1,
+            SeedEnum::Dimension(i) => 2 + i,
+        };
+        unsafe { *self.seeds.add(i as usize) }
+    }
+}
+
+
+#[derive(Debug, Clone)]
+#[cfg_attr(not(target_os = "cuda"), derive(cust::DeviceCopy, Copy))]
+pub struct GenerationParameters<S: SeedGettable + Sized> {
+    pub seeds: S,
+    dims: usize,
+    pub pareto: random::ParetoDistribution,
+    pub alpha: f32,
+    pub w: f32,
+    pub v: u64,
+    pub tile_size: u64,
+    pub edgebuffer_size: u64,
+}
+
+impl GenerationParameters<RawSeeds> {
+    #[cfg(not(target_os = "cuda"))]
+    pub fn from_vecseeds_and_device_ptr(vseeds: &GenerationParameters<VecSeeds>, device_ptr: cust::memory::DevicePointer<u64>) -> Self {
+        Self {
+            seeds: RawSeeds {
+                seeds: device_ptr.as_raw()
+            },
+            dims: vseeds.dims,
+            pareto: vseeds.pareto,
+            alpha: vseeds.alpha,
+            w: vseeds.w,
+            v: vseeds.v,
+            tile_size: vseeds.tile_size,
+            edgebuffer_size: vseeds.edgebuffer_size,
+        }
+    }
+}
+
+#[cfg(not(target_os = "cuda"))]
+impl GenerationParameters<VecSeeds> {
+    pub fn new(num_dimensions: usize, pareto: random::ParetoDistribution, alpha: f32, v: u64, tile_size: u64, edgebuffer_size: u64) -> Self {
+        let seeds: Vec<u64> = random::generate_seeds(num_dimensions + 2);
+
+        Self::from_seeds(num_dimensions, pareto, alpha, v, &seeds, tile_size, edgebuffer_size)
     }
 
-    #[cfg(not(target_os = "cuda"))]
-    pub fn from_seeds(pareto: random::ParetoDistribution, alpha: f32, v: u64, seeds: &[u64], tile_size: u64) -> Self {
-        if seeds.len() != DIMENSIONS + 2 {
-            panic!("Invalid seeds length: {} != {}", seeds.len(), DIMENSIONS + 2);
+    pub fn from_seeds(num_dimensions: usize, pareto: random::ParetoDistribution, alpha: f32, v: u64, seeds: &[u64], tile_size: u64, edgebuffer_size: u64) -> Self {
+        if seeds.len() != num_dimensions + 2 {
+            panic!("Invalid seeds length: {} != {}", seeds.len(), num_dimensions + 2);
         }
 
-        let mut ss = [0u64; DIMENSIONS + 2];
-
-        ss.copy_from_slice(seeds);
-
         let mut s = Self {
-            seeds: ss,
+            seeds: VecSeeds {
+                seeds: Vec::from(seeds),
+            },
+            dims: num_dimensions,
             pareto,
             alpha,
             w: 0.0,
             v,
             tile_size,
+            edgebuffer_size,
         };
 
         s.compute_w();
         s
+    }
+}
+
+// #[cfg(not(target_os = "cuda"))]
+// unsafe impl cust::memory::DeviceCopy for GenerationParameters {}
+
+impl<S: SeedGettable + Sized> GenerationParameters<S> {
+    pub fn num_dimensions(&self) -> usize {
+        self.dims
+    }
+
+    pub fn get_seed(&self, s: SeedEnum) -> u64 {
+        self.seeds.get_seed(s)
     }
 
     #[cfg(not(target_os = "cuda"))]
@@ -95,16 +164,14 @@ impl GenerationParameters {
     }
 
     #[cfg(not(target_os = "cuda"))]
-    pub fn compute_position(&self, j: u64) -> [f32; DIMENSIONS] {
-        let mut a = [0f32; DIMENSIONS];
-        for d in 0..DIMENSIONS {
-            a[d] = random::random_property(j, self.get_seed(SeedEnum::Dimension(d)));
-        }
-        a
+    pub fn compute_position(&self, j: u64) -> Vec<f32> {
+        (0..self.num_dimensions())
+            .map(|d| random::random_property(j, self.get_seed(SeedEnum::Dimension(d))))
+            .collect()
     }
 
     #[cfg(not(target_os = "cuda"))]
-    pub fn compute_positions(&self) -> Vec<[f32; DIMENSIONS]> {
+    pub fn compute_positions(&self) -> Vec<Vec<f32>> {
         (0..self.v).map(|j| self.compute_position(j)).collect()
     }
 
@@ -114,7 +181,7 @@ impl GenerationParameters {
             .flat_map(|j| {
                 vec![self.compute_weight(j)]
                     .into_iter()
-                    .chain((0..DIMENSIONS)
+                    .chain((0..self.num_dimensions())
                         .map(|d|
                             random::random_property(j, self.get_seed(SeedEnum::Dimension(d)))
                         ))

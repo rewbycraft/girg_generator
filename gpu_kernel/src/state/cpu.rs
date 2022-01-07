@@ -18,7 +18,7 @@ pub struct CPUThreadState {
     pub edges_t: Vec<u64>,
     #[derivative(Debug="ignore")]
     edges_t_d: DeviceBuffer<u64>,
-    pub edges_size: u32,
+    pub edges_size: u64,
     pub edges_count: Vec<u32>,
     #[derivative(Debug="ignore")]
     edges_count_d: DeviceBuffer<u32>,
@@ -33,7 +33,7 @@ pub struct CPUThreadState {
 }
 
 impl CPUThreadState {
-    pub fn new(edges_size: u32, num_threads: u64) -> CudaResult<Self> {
+    pub fn new(edges_size: u64, num_threads: u64) -> CudaResult<Self> {
         let mut s = Self {
             current_x: Vec::new(),
             current_x_d: unsafe { DeviceBuffer::zeroed(num_threads as usize)? },

@@ -1,7 +1,7 @@
 use crossbeam_channel::{Receiver, Sender};
-use tracing::{info, debug, instrument};
+use tracing::{debug, info, instrument, warn};
 
-use generator_common::params::GenerationParameters;
+use generator_common::params::{GenerationParameters, VecSeeds};
 
 // #[inline]
 // pub fn worker_function_compute<F: FnMut(u64, u64)>(start: (u64, u64), end: (u64, u64), params: &GenerationParameters, mut cb: F) {
@@ -45,7 +45,7 @@ use generator_common::params::GenerationParameters;
 // }
 
 #[inline]
-pub fn worker_function_pregen<F: FnMut(u64, u64)>(start: (u64, u64), end: (u64, u64), params: &GenerationParameters, mut cb: F) {
+pub fn worker_function_pregen<F: FnMut(u64, u64)>(start: (u64, u64), end: (u64, u64), params: &GenerationParameters<VecSeeds>, mut cb: F) {
     let mut i = start.0;
     let mut j = start.1;
 
@@ -59,8 +59,8 @@ pub fn worker_function_pregen<F: FnMut(u64, u64)>(start: (u64, u64), end: (u64, 
             j,
             *ws.get(i as usize).unwrap(),
             *ws.get(j as usize).unwrap(),
-            *ps.get(i as usize).unwrap(),
-            *ps.get(j as usize).unwrap(),
+            ps.get(i as usize).unwrap(),
+            ps.get(j as usize).unwrap(),
             params,
         )
         {
@@ -84,8 +84,7 @@ pub fn worker_function_pregen<F: FnMut(u64, u64)>(start: (u64, u64), end: (u64, 
     }
 }
 
-pub struct CPUGenerator {
-}
+pub struct CPUGenerator {}
 
 impl generator_common::generator::GraphGenerator for CPUGenerator {
     fn new() -> anyhow::Result<Self> {
@@ -93,7 +92,7 @@ impl generator_common::generator::GraphGenerator for CPUGenerator {
     }
 
     #[instrument(skip_all)]
-    fn generate(&self, sender: Sender<Vec<(u64, u64)>>, finisher: Sender<((u64, u64), (u64, u64))>, receiver: Receiver<((u64, u64), (u64, u64))>, params: &GenerationParameters) -> anyhow::Result<()> {
+    fn generate(&self, sender: Sender<Vec<(u64, u64)>>, finisher: Sender<((u64, u64), (u64, u64))>, receiver: Receiver<((u64, u64), (u64, u64))>, params: &GenerationParameters<VecSeeds>) -> anyhow::Result<()> {
         info!("Running!");
         for (start, end) in receiver {
             worker(sender.clone(), start, end, params);
@@ -106,9 +105,11 @@ impl generator_common::generator::GraphGenerator for CPUGenerator {
     }
 }
 
-pub fn worker(sender: Sender<Vec<(u64, u64)>>, start: (u64, u64), end: (u64, u64), params: &GenerationParameters) {
-    let mut pair_queue = [(0, 0); 40960];
+pub fn worker(sender: Sender<Vec<(u64, u64)>>, start: (u64, u64), end: (u64, u64), params: &GenerationParameters<VecSeeds>) {
+    let mut pair_queue = Vec::new();
+    pair_queue.resize(params.edgebuffer_size as usize, (0, 0));
     let mut pair_queue_index = 0usize;
+    let mut pair_queue_sends = 0usize;
 
     info!("Job: {:?} -> {:?}", start, end);
     crate::worker_function_pregen(start, end, params, |i, j| {
@@ -122,6 +123,7 @@ pub fn worker(sender: Sender<Vec<(u64, u64)>>, start: (u64, u64), end: (u64, u64
 
             sender.send(v).unwrap();
             pair_queue_index = 0;
+            pair_queue_sends += 1;
         }
     });
 
@@ -129,6 +131,11 @@ pub fn worker(sender: Sender<Vec<(u64, u64)>>, start: (u64, u64), end: (u64, u64
         let v = Vec::from(&pair_queue[0..pair_queue_index]);
         debug!("Sending {} pairs.", v.len());
         sender.send(v).unwrap();
+        pair_queue_sends += 1;
+    }
+
+    if pair_queue_sends > 1 {
+        warn!("Edge buffer likely too small. Had to send more than one for this job. Consider increasing the edgebuffer size to {}.", params.edgebuffer_size * pair_queue_sends);
     }
 
     info!("Job done!");

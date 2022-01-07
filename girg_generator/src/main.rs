@@ -5,6 +5,8 @@ use std::path::PathBuf;
 use clap::{ArgEnum, Parser, ValueHint};
 use tracing::{debug, info};
 
+use generator_common::params::VecSeeds;
+
 pub mod pbar;
 #[cfg(test)]
 pub mod tests;
@@ -39,6 +41,9 @@ struct Args {
     /// x_min value of the pareto distribution
     #[clap(short, long, default_value_t = 1.0)]
     x_min: f32,
+    /// Number of spatial dimensions
+    #[clap(short, long, default_value_t = 2)]
+    dimensions: usize,
     /// Number of shards in use.
     #[clap(long, default_value_t = 1)]
     shard_count: usize,
@@ -46,7 +51,7 @@ struct Args {
     #[clap(long, default_value_t = 0)]
     shard_index: usize,
     /// NVidia Device index
-    #[clap(short, long, default_value_t = 0)]
+    #[clap(long, default_value_t = 0)]
     device: u32,
     #[clap(long, parse(from_os_str), value_hint = ValueHint::FilePath)]
     /// File to write degrees_distribution to
@@ -69,6 +74,9 @@ struct Args {
     /// Seed values
     #[clap(long, short)]
     seeds: Option<Vec<u64>>,
+    /// Size of the buffer used to hold edges before processing. Effectively edge batch size.
+    #[clap(long, default_value_t = 1024)]
+    edgebuffer_size: u64,
 }
 
 impl Args {
@@ -76,10 +84,10 @@ impl Args {
         generator_common::random::ParetoDistribution::new(self.x_min, self.beta)
     }
 
-    pub fn get_params(&self) -> generator_common::params::GenerationParameters {
+    pub fn get_params(&self) -> generator_common::params::GenerationParameters<VecSeeds> {
         match self.seeds.as_ref() {
-            None => generator_common::params::GenerationParameters::new(self.get_pareto(), self.alpha, self.vertices, self.tile_size),
-            Some(s) => generator_common::params::GenerationParameters::from_seeds(self.get_pareto(), self.alpha, self.vertices, s.as_slice(), self.tile_size),
+            None => generator_common::params::GenerationParameters::new(self.dimensions, self.get_pareto(), self.alpha, self.vertices, self.tile_size),
+            Some(s) => generator_common::params::GenerationParameters::from_seeds(self.dimensions, self.get_pareto(), self.alpha, self.vertices, s.as_slice(), self.tile_size),
         }
     }
 }
@@ -90,6 +98,10 @@ fn main() -> anyhow::Result<()> {
 
     if app.shard_index >= app.shard_count {
         panic!("Shard index must be less than shard count.");
+    }
+
+    if app.dimensions < 1 {
+        panic!("Number of dimensions must be at least 1.");
     }
 
     info!("Running using the {:?} generator!", app.generator);
@@ -128,7 +140,7 @@ fn main() -> anyhow::Result<()> {
         for i in params.compute_positions() {
             for j in 0..i.len() {
                 write!(f, "{}", i[j]).unwrap();
-                if j < i.len()-1 {
+                if j < i.len() - 1 {
                     write!(f, ",").unwrap();
                 }
             }

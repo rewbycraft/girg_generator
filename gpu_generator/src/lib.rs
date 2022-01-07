@@ -1,11 +1,11 @@
 use crossbeam_channel::{Receiver, Sender};
 use cust::error::CudaResult;
-use cust::memory::DeviceBox;
+use cust::memory::{DeviceBox, GpuBuffer};
 use cust::prelude::*;
-use tracing::{debug, info, instrument};
+use tracing::{debug, info, instrument, warn};
 use generator_common::generator::GraphGenerator;
 
-use generator_common::params::GenerationParameters;
+use generator_common::params::{GenerationParameters, VecSeeds};
 
 static PTX: &str = include_str!("../kernel.ptx");
 
@@ -20,17 +20,17 @@ impl GPUGenerator {
                   grid_size: u32,
                   block_size: u32,
                   stream: &Stream,
-                  params: &GenerationParameters,
+                  params: &GenerationParameters<VecSeeds>,
                   variables_d: &mut DeviceBuffer<f32>,
     ) -> CudaResult<()> {
         info!("Starting a run...");
         let kernel_function = self.module.get_function("generator_kernel")?;
-        let mut params_d = DeviceBox::new(params)?;
-
-        //cpu_state.copy_to_device().unwrap();
 
         // Queue up the commands to the GPU.
         unsafe {
+            let seeds_buffer = params.seeds.get_dbuffer_async(stream)?;
+            let params_raw = GenerationParameters::from_vecseeds_and_device_ptr(params, seeds_buffer.as_device_ptr());
+            let mut params_d = DeviceBox::new(&params_raw)?;
             cpu_state.copy_to_device_async(stream).unwrap();
 
             let mut gpu_state = cpu_state.create_gpu_state().unwrap();
@@ -51,8 +51,6 @@ impl GPUGenerator {
         // Wait for the GPU to finish the job.
         stream.synchronize().unwrap();
 
-        //cpu_state.copy_from_device().unwrap();
-
         info!("Run complete!");
 
         Ok(())
@@ -68,8 +66,8 @@ impl GraphGenerator for GPUGenerator {
     }
 
     #[instrument(skip_all)]
-    fn generate(&self, sender: Sender<Vec<(u64, u64)>>, finisher: Sender<((u64, u64), (u64, u64))>, receiver: Receiver<((u64, u64), (u64, u64))>, params: &GenerationParameters) -> anyhow::Result<()> {
-        let stream = Stream::new(StreamFlags::DEFAULT, None)?;
+    fn generate(&self, sender: Sender<Vec<(u64, u64)>>, finisher: Sender<((u64, u64), (u64, u64))>, receiver: Receiver<((u64, u64), (u64, u64))>, params: &GenerationParameters<VecSeeds>) -> anyhow::Result<()> {
+        let stream = Stream::new(StreamFlags::NON_BLOCKING, None)?;
 
         let variables = params.compute_interleaved_variables();
         let mut variables_d = variables.as_slice().as_dbuf()?;
@@ -86,13 +84,15 @@ impl GraphGenerator for GPUGenerator {
             grid_size, block_size, num_threads
         );
 
-        let mut cpu_state = gpu_kernel::state::cpu::CPUThreadState::new(1024, num_threads as u64)?;
+        let mut cpu_state = gpu_kernel::state::cpu::CPUThreadState::new(params.edgebuffer_size, num_threads as u64)?;
 
         //Mark all threads as done. This way they'll all get a new tile.
         cpu_state.done.fill(true);
 
         let mut edge_queue: Vec<(u64, u64)> = Vec::new();
 
+        let mut avg_overfill_sum = 0.0f64;
+        let mut avg_overfill_count = 0usize;
         info!("Beginning generation loop...");
         loop {
             info!("Starting round...");
@@ -154,7 +154,14 @@ impl GraphGenerator for GPUGenerator {
                 }
             }
 
-            info!("Finished round having generated {} edges ({:.02} edges per thread).", edge_queue.len(), (edge_queue.len() as f64) / (block_counter as f64));
+            let avg_fill = (edge_queue.len() as f64) / (block_counter as f64);
+            info!("Finished round having generated {} edges ({:.02} edges per thread).", edge_queue.len(), avg_fill);
+            if avg_fill > (params.edgebuffer_size as f64) * 0.9 {
+                avg_overfill_sum += avg_fill;
+                avg_overfill_count += 1;
+                let recommended_size = (avg_overfill_count / (avg_overfill_sum as f64)) * (avg_overfill_count as f64 + 1.0);
+                warn!("Fill was over 90% of the buffer! Consider increasing the edge buffer size to {}.", recommended_size);
+            }
         }
 
         info!("Done generating!");

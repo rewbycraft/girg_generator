@@ -1,18 +1,18 @@
 use std::thread::JoinHandle;
 use tracing::{info, instrument};
 use crossbeam_channel::{Sender, Receiver};
-use crate::params::GenerationParameters;
+use crate::params::{GenerationParameters, VecSeeds};
 use cust::context::{Context, CurrentContext};
 use crate::generator::GraphGenerator;
 
-pub fn start_generate_tiles_thread(sender: Sender<((u64, u64), (u64, u64))>, params: &GenerationParameters, shard_index: usize, shard_count: usize) -> JoinHandle<()> {
+pub fn start_generate_tiles_thread(sender: Sender<((u64, u64), (u64, u64))>, params: &GenerationParameters<VecSeeds>, shard_index: usize, shard_count: usize) -> JoinHandle<()> {
     let params = params.clone();
     std::thread::spawn(move || {
         generate_tiles(sender, &params, shard_index, shard_count)
     })
 }
 
-pub fn generate_tiles(sender: Sender<((u64, u64), (u64, u64))>, params: &GenerationParameters, shard_index: usize, shard_count: usize) {
+pub fn generate_tiles(sender: Sender<((u64, u64), (u64, u64))>, params: &GenerationParameters<VecSeeds>, shard_index: usize, shard_count: usize) {
     info!("Emitting tiles...");
 
     for tile in params.tiles().skip(shard_index).step_by(shard_count) {
@@ -22,7 +22,7 @@ pub fn generate_tiles(sender: Sender<((u64, u64), (u64, u64))>, params: &Generat
     info!("Tiles are generated!");
 }
 
-pub fn start_workers<T: GraphGenerator>(ctx: &Option<Context>, num_workers: usize, sender: Sender<Vec<(u64, u64)>>, finisher: Sender<((u64, u64), (u64, u64))>, receiver: Receiver<((u64, u64), (u64, u64))>, params: &crate::GenerationParameters) -> Vec<JoinHandle<()>> {
+pub fn start_workers<T: GraphGenerator>(ctx: &Option<Context>, num_workers: usize, sender: Sender<Vec<(u64, u64)>>, finisher: Sender<((u64, u64), (u64, u64))>, receiver: Receiver<((u64, u64), (u64, u64))>, params: &crate::GenerationParameters<VecSeeds>) -> Vec<JoinHandle<()>> {
     let mut handles = Vec::new();
 
     for i in 0u64..(num_workers as u64) {
@@ -47,7 +47,7 @@ pub fn start_workers<T: GraphGenerator>(ctx: &Option<Context>, num_workers: usiz
 }
 
 #[instrument(skip_all, fields(tid = _thread_id))]
-pub fn worker_thread<T: GraphGenerator>(_thread_id: u64, sender: Sender<Vec<(u64, u64)>>, finisher: Sender<((u64, u64), (u64, u64))>, receiver: Receiver<((u64, u64), (u64, u64))>, params: &GenerationParameters) {
+pub fn worker_thread<T: GraphGenerator>(_thread_id: u64, sender: Sender<Vec<(u64, u64)>>, finisher: Sender<((u64, u64), (u64, u64))>, receiver: Receiver<((u64, u64), (u64, u64))>, params: &GenerationParameters<VecSeeds>) {
     info!("Running!");
     let generator = T::new().unwrap();
     generator.generate(sender, finisher, receiver, params).unwrap();

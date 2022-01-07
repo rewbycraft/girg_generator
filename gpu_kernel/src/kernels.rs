@@ -5,7 +5,7 @@ use generator_common::params::SeedEnum;
 
 #[kernel]
 #[allow(improper_ctypes_definitions, clippy::missing_safety_doc)]
-pub unsafe fn generator_kernel(ts: *mut crate::state::gpu::GPUThreadState, params: &generator_common::params::GenerationParameters, variables: &[f32]) {
+pub unsafe fn generator_kernel(ts: *mut crate::state::gpu::GPUThreadState, params: &generator_common::params::GenerationParameters<generator_common::params::RawSeeds>, variables: &[f32]) {
     let ts = &mut *ts;
     if thread::index_1d() >= ts.num_threads as u32 {
         panic!("too many threads");
@@ -17,13 +17,8 @@ pub unsafe fn generator_kernel(ts: *mut crate::state::gpu::GPUThreadState, param
     }
 
     let w = |i: u64| { variables[(i as usize) * (params.num_dimensions() + 1)] };
-    let p = |i: u64, d: usize| { variables[((i as usize) * (params.num_dimensions() + 1)) + (d + 1)] };
     let ps = |i: u64| {
-        let mut a = [0f32; generator_common::params::DIMENSIONS];
-        for d in 0..a.len() {
-            a[d] = p(i, d);
-        }
-        a
+        &variables[(((i as usize) * (params.num_dimensions() + 1)) + 1)..(((i as usize) * (params.num_dimensions() + 1)) + (params.num_dimensions() + 1))]
     };
 
     let (start, end) = params.pos_to_tile(ts.get_x(), ts.get_y());
@@ -32,12 +27,15 @@ pub unsafe fn generator_kernel(ts: *mut crate::state::gpu::GPUThreadState, param
     let mut j = ts.get_y();
 
     loop {
+        let ps_i = ps(i);
+        let ps_j = ps(j);
+
         if generate_edge(i,
                          j,
                          w(i),
                          w(j),
-                         ps(i),
-                         ps(j),
+                         ps_i,
+                         ps_j,
                          params)
         {
             if !ts.can_add_edge() {

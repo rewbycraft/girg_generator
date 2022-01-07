@@ -10,9 +10,7 @@ register_attr(nvvm_internal)
 use cuda_std::GpuFloat;
 use no_std_compat::cmp::Ordering::Equal;
 
-use params::GenerationParameters;
-
-use crate::params::{DIMENSIONS, SeedEnum};
+use crate::params::{SeedEnum, SeedGettable, GenerationParameters};
 
 pub mod params;
 pub mod random;
@@ -23,7 +21,11 @@ pub mod threads;
 #[cfg(not(target_os = "cuda"))]
 pub mod generator;
 
-pub fn compute_distance(p_i: [f32; DIMENSIONS], p_j: [f32; DIMENSIONS]) -> f32 {
+trait PositionGetter {
+    fn get_position(&self, node: u64, dimension: usize) -> f32;
+}
+
+pub fn compute_distance(p_i: &[f32], p_j: &[f32]) -> f32 {
     fn dist_c(i: f32, j: f32) -> f32 {
         (i - j).abs().min(1.0f32 - ((i - j).abs()))
     }
@@ -35,7 +37,7 @@ pub fn compute_distance(p_i: [f32; DIMENSIONS], p_j: [f32; DIMENSIONS]) -> f32 {
         .unwrap()
 }
 
-pub fn compute_probability(d: f32, w_i: f32, w_j: f32, params: &GenerationParameters) -> f32 {
+pub fn compute_probability<S: SeedGettable + Sized>(d: f32, w_i: f32, w_j: f32, params: &GenerationParameters<S>) -> f32 {
     if params.alpha.is_infinite() {
         let v = ((w_i * w_j) / params.w).powf(1.0f32 / 2.0f32);
         if d <= v {
@@ -59,7 +61,7 @@ pub fn compute_probability(d: f32, w_i: f32, w_j: f32, params: &GenerationParame
 //const EPS: f32 = 9.765625e-04;
 const EPS: f32 = 2.384185791015625e-07;
 
-pub fn generate_edge(i: u64, j: u64, w_i: f32, w_j: f32, p_i: [f32; DIMENSIONS], p_j: [f32; DIMENSIONS], params: &GenerationParameters) -> bool {
+pub fn generate_edge<S: SeedGettable + Sized>(i: u64, j: u64, w_i: f32, w_j: f32, p_i: &[f32], p_j: &[f32], params: &GenerationParameters<S>) -> bool {
     let d = compute_distance(p_i, p_j);
     let p = compute_probability(d, w_i, w_j, params);
     let rp = random::random_edge(i, j, params.get_seed(SeedEnum::Edge));
