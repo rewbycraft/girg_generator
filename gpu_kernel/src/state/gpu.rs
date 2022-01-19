@@ -8,7 +8,7 @@ pub struct GPUThreadState {
     pub edges_s: *mut u64,
     pub edges_t: *mut u64,
     pub edges_size: u64,
-    pub edges_count: *mut u32,
+    pub edges_count: *mut u64,
     pub done: *mut bool,
     pub num_threads: u64,
     pub debug: *mut f32,
@@ -42,11 +42,11 @@ impl GPUThreadState {
         *self.done.add(thread::index_1d() as usize)
     }
 
-    pub unsafe fn get_edge_count(&self) -> u32 {
+    pub unsafe fn get_edge_count(&self) -> u64 {
         *self.edges_count.add(thread::index_1d() as usize)
     }
 
-    unsafe fn increment_edge_count(&mut self, count: u32) {
+    unsafe fn increment_edge_count(&mut self, count: u64) {
         *self.edges_count.add(thread::index_1d() as usize) += count;
     }
 

@@ -117,7 +117,7 @@ pub fn worker(sender: Sender<Vec<(u64, u64)>>, start: (u64, u64), end: (u64, u64
         pair_queue_index += 1;
 
         if pair_queue_index >= pair_queue.len() {
-            let v = Vec::from(pair_queue);
+            let v = pair_queue.clone();
 
             debug!("Sending {} pairs.", v.len());
 
@@ -135,7 +135,7 @@ pub fn worker(sender: Sender<Vec<(u64, u64)>>, start: (u64, u64), end: (u64, u64
     }
 
     if pair_queue_sends > 1 {
-        warn!("Edge buffer likely too small. Had to send more than one for this job. Consider increasing the edgebuffer size to {}.", params.edgebuffer_size * pair_queue_sends);
+        warn!("Edge buffer likely too small. Had to send more than one for this job. Consider increasing the edgebuffer size to {}.", params.edgebuffer_size as usize * pair_queue_sends);
     }
 
     info!("Job done!");

@@ -24,7 +24,7 @@ pub fn create_progress_bar(total_size: u64) {
     let pb = ProgressBar::new(total_size);
     pb.enable_steady_tick(100);
     pb.set_style(ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} {msg} ({eta} remaining)")
+        .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} {msg} ({eta_precise} remaining)")
         .progress_chars("=>-"));
     *PROGRESS_BAR.lock().unwrap() = Some(pb);
 }

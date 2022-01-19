@@ -6,8 +6,10 @@ use clap::{ArgEnum, Parser, ValueHint};
 use tracing::{debug, info};
 
 use generator_common::params::VecSeeds;
+use crate::parquet_edges::ParquetEdgeWriter;
 
 pub mod pbar;
+pub mod parquet_edges;
 #[cfg(test)]
 pub mod tests;
 
@@ -64,7 +66,10 @@ struct Args {
     output_degrees_txt: Option<PathBuf>,
     #[clap(long, parse(from_os_str), value_hint = ValueHint::FilePath)]
     /// File to write edges to (csv: i, j)
-    output_edges: Option<PathBuf>,
+    output_edges_csv: Option<PathBuf>,
+    #[clap(long, parse(from_os_str), value_hint = ValueHint::FilePath)]
+    /// File to write edges to (parquet: i, j) (recommended due to compression)
+    output_edges_parquet: Option<PathBuf>,
     #[clap(long, parse(from_os_str), value_hint = ValueHint::FilePath)]
     /// File to write weights to (plain text, one weight per line)
     output_weights: Option<PathBuf>,
@@ -86,8 +91,8 @@ impl Args {
 
     pub fn get_params(&self) -> generator_common::params::GenerationParameters<VecSeeds> {
         match self.seeds.as_ref() {
-            None => generator_common::params::GenerationParameters::new(self.dimensions, self.get_pareto(), self.alpha, self.vertices, self.tile_size),
-            Some(s) => generator_common::params::GenerationParameters::from_seeds(self.dimensions, self.get_pareto(), self.alpha, self.vertices, s.as_slice(), self.tile_size),
+            None => generator_common::params::GenerationParameters::new(self.dimensions, self.get_pareto(), self.alpha, self.vertices, self.tile_size, self.edgebuffer_size),
+            Some(s) => generator_common::params::GenerationParameters::from_seeds(self.dimensions, self.get_pareto(), self.alpha, self.vertices, s.as_slice(), self.tile_size, self.edgebuffer_size),
         }
     }
 }
@@ -174,29 +179,45 @@ fn main() -> anyhow::Result<()> {
         }
     }));
 
-    info!("Receiving edges...");
-    let mut edge_counter = 0u128;
-    if let Some(p) = app.output_edges {
-        let mut wtr = csv::Writer::from_path(&p).unwrap();
-        wtr.write_record(&["edge_i", "edge_j"]).unwrap();
+    {
+        info!("Receiving edges...");
+        let mut edge_counter = 0u128;
+
+        let mut csv_wtr = app.output_edges_csv.map(|p| {
+            let mut wtr = csv::Writer::from_path(&p).unwrap();
+            wtr.write_record(&["edge_i", "edge_j"]).unwrap();
+            wtr
+        });
+
+        let mut parquet_wtr = app.output_edges_parquet.map(|p| {
+            ParquetEdgeWriter::new(p)
+        });
 
         for edge_tile in edge_receiver {
+            if let Some(wtr) = parquet_wtr.as_mut() {
+                wtr.write_vec(&edge_tile);
+            }
+
             for (i, j) in edge_tile {
                 edge_counter += 1;
-                wtr.write_record(&[format!("{}", i), format!("{}", j)]).unwrap();
                 *degree_counters.get_mut(i as usize).unwrap() += 1;
+                if let Some(wtr) = csv_wtr.as_mut() {
+                    wtr.write_record(&[format!("{}", i), format!("{}", j)]).unwrap();
+                }
             }
+
         }
-        wtr.flush().unwrap();
-    } else {
-        for edge_tile in edge_receiver {
-            for (i, _j) in edge_tile {
-                edge_counter += 1;
-                *degree_counters.get_mut(i as usize).unwrap() += 1;
-            }
+
+        if let Some(wtr) = csv_wtr.as_mut() {
+            wtr.flush().unwrap();
         }
+
+        if let Some(wtr) = parquet_wtr.as_mut() {
+            wtr.close();
+        }
+
+        info!("All edges received! ({} edges)", edge_counter);
     }
-    info!("All edges received! ({} edges)", edge_counter);
 
     info!("Waiting for the threads to join...");
     while let Some(h) = handles.pop() {

@@ -19,9 +19,9 @@ pub struct CPUThreadState {
     #[derivative(Debug="ignore")]
     edges_t_d: DeviceBuffer<u64>,
     pub edges_size: u64,
-    pub edges_count: Vec<u32>,
+    pub edges_count: Vec<u64>,
     #[derivative(Debug="ignore")]
-    edges_count_d: DeviceBuffer<u32>,
+    edges_count_d: DeviceBuffer<u64>,
     pub done: Vec<bool>,
     #[derivative(Debug="ignore")]
     done_d: DeviceBuffer<bool>,

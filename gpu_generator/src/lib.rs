@@ -159,7 +159,7 @@ impl GraphGenerator for GPUGenerator {
             if avg_fill > (params.edgebuffer_size as f64) * 0.9 {
                 avg_overfill_sum += avg_fill;
                 avg_overfill_count += 1;
-                let recommended_size = (avg_overfill_count / (avg_overfill_sum as f64)) * (avg_overfill_count as f64 + 1.0);
+                let recommended_size = (avg_overfill_sum / (avg_overfill_count as f64)) * (avg_overfill_count as f64 + 1.0);
                 warn!("Fill was over 90% of the buffer! Consider increasing the edge buffer size to {}.", recommended_size);
             }
         }
