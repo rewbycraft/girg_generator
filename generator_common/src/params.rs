@@ -74,6 +74,8 @@ impl SeedGettable for RawSeeds {
 #[cfg_attr(not(target_os = "cuda"), derive(cust::DeviceCopy, Copy))]
 pub struct GenerationParameters<S: SeedGettable + Sized> {
     pub seeds: S,
+    pub pregenerate_numbers: bool,
+    pub gpu_blocks: Option<u32>,
     dims: usize,
     pub pareto: random::ParetoDistribution,
     pub alpha: f32,
@@ -90,6 +92,8 @@ impl GenerationParameters<RawSeeds> {
             seeds: RawSeeds {
                 seeds: device_ptr.as_raw()
             },
+            pregenerate_numbers: vseeds.pregenerate_numbers,
+            gpu_blocks: vseeds.gpu_blocks,
             dims: vseeds.dims,
             pareto: vseeds.pareto,
             alpha: vseeds.alpha,
@@ -103,13 +107,13 @@ impl GenerationParameters<RawSeeds> {
 
 #[cfg(not(target_os = "cuda"))]
 impl GenerationParameters<VecSeeds> {
-    pub fn new(num_dimensions: usize, pareto: random::ParetoDistribution, alpha: f32, v: u64, tile_size: u64, edgebuffer_size: u64) -> Self {
+    pub fn new(num_dimensions: usize, pareto: random::ParetoDistribution, alpha: f32, v: u64, tile_size: u64, edgebuffer_size: u64, pregenerate_numbers: bool, gpu_blocks: Option<u32>) -> Self {
         let seeds: Vec<u64> = random::generate_seeds(num_dimensions + 2);
 
-        Self::from_seeds(num_dimensions, pareto, alpha, v, &seeds, tile_size, edgebuffer_size)
+        Self::from_seeds(num_dimensions, pareto, alpha, v, &seeds, tile_size, edgebuffer_size, pregenerate_numbers, gpu_blocks)
     }
 
-    pub fn from_seeds(num_dimensions: usize, pareto: random::ParetoDistribution, alpha: f32, v: u64, seeds: &[u64], tile_size: u64, edgebuffer_size: u64) -> Self {
+    pub fn from_seeds(num_dimensions: usize, pareto: random::ParetoDistribution, alpha: f32, v: u64, seeds: &[u64], tile_size: u64, edgebuffer_size: u64, pregenerate_numbers: bool, gpu_blocks: Option<u32>) -> Self {
         if seeds.len() != num_dimensions + 2 {
             panic!("Invalid seeds length: {} != {}", seeds.len(), num_dimensions + 2);
         }
@@ -118,6 +122,8 @@ impl GenerationParameters<VecSeeds> {
             seeds: VecSeeds {
                 seeds: Vec::from(seeds),
             },
+            pregenerate_numbers,
+            gpu_blocks,
             dims: num_dimensions,
             pareto,
             alpha,
@@ -153,9 +159,8 @@ impl<S: SeedGettable + Sized> GenerationParameters<S> {
         info!("Computed W = {}", self.w);
     }
 
-    #[cfg(not(target_os = "cuda"))]
     pub fn compute_weight(&self, j: u64) -> f32 {
-        random::uniform_to_pareto(random::random_property(j, self.get_seed(SeedEnum::Weight)), &self.pareto)
+        random::uniform_to_pareto(self.compute_property(j, SeedEnum::Weight), &self.pareto)
     }
 
     #[cfg(not(target_os = "cuda"))]
@@ -166,8 +171,18 @@ impl<S: SeedGettable + Sized> GenerationParameters<S> {
     #[cfg(not(target_os = "cuda"))]
     pub fn compute_position(&self, j: u64) -> Vec<f32> {
         (0..self.num_dimensions())
-            .map(|d| random::random_property(j, self.get_seed(SeedEnum::Dimension(d))))
+            .map(|d| self.compute_property(j, SeedEnum::Dimension(d)))
             .collect()
+    }
+
+    fn compute_property(&self, j: u64, p: SeedEnum) -> f32 {
+        random::random_property(j, self.get_seed(p))
+    }
+
+    pub fn fill_dims(&self, j: u64, p: &mut [f32]) {
+        for d in 0..self.num_dimensions() {
+            p[d] = self.compute_property(j, SeedEnum::Dimension(d));
+        }
     }
 
     #[cfg(not(target_os = "cuda"))]
@@ -183,7 +198,7 @@ impl<S: SeedGettable + Sized> GenerationParameters<S> {
                     .into_iter()
                     .chain((0..self.num_dimensions())
                         .map(|d|
-                            random::random_property(j, self.get_seed(SeedEnum::Dimension(d)))
+                            self.compute_property(j, SeedEnum::Dimension(d))
                         ))
                     .collect::<Vec<f32>>()
             }).collect()

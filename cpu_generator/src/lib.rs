@@ -3,64 +3,46 @@ use tracing::{debug, info, instrument, warn};
 
 use generator_common::params::{GenerationParameters, VecSeeds};
 
-// #[inline]
-// pub fn worker_function_compute<F: FnMut(u64, u64)>(start: (u64, u64), end: (u64, u64), params: &GenerationParameters, mut cb: F) {
-//     let mut i = start.0;
-//     let mut j = start.1;
-//
-//     // Pre-calculate the params for j.
-//     let mut w_j = random::uniform_to_pareto(random::random_property(j, params.seeds[0]), &params.pareto);
-//     let mut p0_j = random::random_property(j, params.seeds[2]);
-//     let mut p1_j = random::random_property(j, params.seeds[3]);
-//
-//     loop {
-//         let w_i = random::uniform_to_pareto(random::random_property(i, params.seeds[0]), &params.pareto);
-//         let p0_i = random::random_property(i, params.seeds[2]);
-//         let p1_i = random::random_property(i, params.seeds[3]);
-//
-//         if generator_common::generate_edge(i, j, w_i, p0_i, p1_i, w_j, p0_j, p1_j, params) {
-//             cb(i, j)
-//         }
-//
-//         // Increment i,j
-//         i += 1;
-//         if i >= params.v.min(end.0) {
-//             i = start.0;
-//             j += 1;
-//
-//             // Re-calculate the params for j.
-//             w_j = random::uniform_to_pareto(random::random_property(j, params.seeds[0]), &params.pareto);
-//             p0_j = random::random_property(j, params.seeds[2]);
-//             p1_j = random::random_property(j, params.seeds[3]);
-//         }
-//         if j >= params.v.min(end.1) {
-//             // We've past the last node.
-//             break;
-//         }
-//         if i >= params.v.min(end.0) && j >= params.v.min(end.1) {
-//             // We're done.
-//             break;
-//         }
-//     }
-// }
-
 #[inline]
-pub fn worker_function_pregen<F: FnMut(u64, u64)>(start: (u64, u64), end: (u64, u64), params: &GenerationParameters<VecSeeds>, mut cb: F) {
+pub fn worker_function<F: FnMut(u64, u64)>(start: (u64, u64), end: (u64, u64), params: &GenerationParameters<VecSeeds>, mut cb: F) {
     let mut i = start.0;
     let mut j = start.1;
 
     // Pre-calculate the params for j.
-    let ws: Vec<f32> = params.compute_weights();
-    let ps = params.compute_positions();
+    let ws: Option<Vec<f32>> = if params.pregenerate_numbers { Some(params.compute_weights()) } else { None };
+    let ps: Option<Vec<Vec<f32>>> = if params.pregenerate_numbers { Some(params.compute_positions()) } else { None };
+    let mut p_i_prime = Vec::new();
+    let mut p_j_prime = Vec::new();
+    p_i_prime.resize(params.num_dimensions(), 0.0f32);
+    p_j_prime.resize(params.num_dimensions(), 0.0f32);
 
     loop {
+        let w_i = ws.as_ref()
+            .map(|w| *w.get(i as usize).unwrap())
+            .unwrap_or_else(|| params.compute_weight(i));
+        let w_j = ws.as_ref()
+            .map(|w| *w.get(j as usize).unwrap())
+            .unwrap_or_else(|| params.compute_weight(j));
+        let p_i = ps.as_ref()
+            .map(|p| p.get(i as usize).unwrap())
+            .unwrap_or_else(|| {
+                params.fill_dims(i, &mut p_i_prime);
+                &p_i_prime
+            });
+        let p_j = ps.as_ref()
+            .map(|p| p.get(j as usize).unwrap())
+            .unwrap_or_else(|| {
+                params.fill_dims(j, &mut p_j_prime);
+                &p_j_prime
+            });
+
         if generator_common::generate_edge(
             i,
             j,
-            *ws.get(i as usize).unwrap(),
-            *ws.get(j as usize).unwrap(),
-            ps.get(i as usize).unwrap(),
-            ps.get(j as usize).unwrap(),
+            w_i,
+            w_j,
+            p_i,
+            p_j,
             params,
         )
         {
@@ -112,7 +94,7 @@ pub fn worker(sender: Sender<Vec<(u64, u64)>>, start: (u64, u64), end: (u64, u64
     let mut pair_queue_sends = 0usize;
 
     info!("Job: {:?} -> {:?}", start, end);
-    crate::worker_function_pregen(start, end, params, |i, j| {
+    crate::worker_function(start, end, params, |i, j| {
         pair_queue[pair_queue_index] = (i, j);
         pair_queue_index += 1;
 

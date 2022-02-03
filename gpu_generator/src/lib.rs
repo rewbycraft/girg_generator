@@ -7,7 +7,7 @@ use generator_common::generator::GraphGenerator;
 
 use generator_common::params::{GenerationParameters, VecSeeds};
 
-static PTX: &str = include_str!("../kernel.ptx");
+static PTX: &str = include_str!(env!("KERNEL_PTX_PATH"));
 
 pub struct GPUGenerator {
     module: Module,
@@ -57,6 +57,13 @@ impl GPUGenerator {
     }
 }
 
+pub fn suggested_launch_configuration() -> CudaResult<(u32, u32)> {
+    let module = Module::from_str(PTX)?;
+    let kernel_function = module.get_function("generator_kernel")?;
+    let sg = kernel_function.suggested_launch_configuration(0, 0.into())?;
+    Ok(sg)
+}
+
 impl GraphGenerator for GPUGenerator {
     fn new() -> anyhow::Result<Self> {
         let module = Module::from_str(PTX)?;
@@ -76,6 +83,8 @@ impl GraphGenerator for GPUGenerator {
         let (grid_size, block_size) = kernel_function.suggested_launch_configuration(0, 0.into())?;
 
         let grid_size = grid_size.min((params.num_tiles() as u32 + block_size - 1) / block_size);
+
+        let grid_size = params.gpu_blocks.unwrap_or(grid_size);
 
         let num_threads = (grid_size * block_size) as usize;
 

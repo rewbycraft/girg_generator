@@ -16,7 +16,18 @@ pub unsafe fn generator_kernel(ts: *mut crate::state::gpu::GPUThreadState, param
         return;
     }
 
-    let w = |i: u64| { variables[(i as usize) * (params.num_dimensions() + 1)] };
+    let mut p_i_prime = Vec::new();
+    let mut p_j_prime = Vec::new();
+    p_i_prime.resize(params.num_dimensions(), 0.0f32);
+    p_j_prime.resize(params.num_dimensions(), 0.0f32);
+
+    let w = |i: u64| {
+        if params.pregenerate_numbers {
+            variables[(i as usize) * (params.num_dimensions() + 1)]
+        } else {
+            params.compute_weight(i)
+        }
+    };
     let ps = |i: u64| {
         &variables[(((i as usize) * (params.num_dimensions() + 1)) + 1)..(((i as usize) * (params.num_dimensions() + 1)) + (params.num_dimensions() + 1))]
     };
@@ -27,8 +38,18 @@ pub unsafe fn generator_kernel(ts: *mut crate::state::gpu::GPUThreadState, param
     let mut j = ts.get_y();
 
     loop {
-        let ps_i = ps(i);
-        let ps_j = ps(j);
+        let ps_i: &[f32] = if params.pregenerate_numbers {
+            ps(i)
+        } else {
+            params.fill_dims(i, &mut p_i_prime);
+            &p_i_prime
+        };
+        let ps_j: &[f32] = if params.pregenerate_numbers {
+            ps(j)
+        } else {
+            params.fill_dims(j, &mut p_j_prime);
+            &p_j_prime
+        };
 
         if generate_edge(i,
                          j,

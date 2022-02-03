@@ -22,6 +22,33 @@ indicatif = "0.16.2"
 csv = "1.1.6"
 parquet = "6.5.0"
 
+num_cpus = { version = "1.13.1", optional = true }
+criterion = { version = "0.3", optional = true }
+
 [dev-dependencies]
 mur3 = "0.1.0"
 rstest = "0.12.0"
+
+[features]
+
+benchmark = [ "num_cpus", "criterion" ]
+
+[[bench]]
+name = "cpu_core_scaling"
+harness = false
+required-features = ["benchmark"]
+
+[[bench]]
+name = "gpu_core_scaling"
+harness = false
+required-features = ["benchmark"]
+
+[[bench]]
+name = "cpu_size_scaling"
+harness = false
+required-features = ["benchmark"]
+
+[[bench]]
+name = "gpu_size_scaling"
+harness = false
+required-features = ["benchmark"]

@@ -17,7 +17,3 @@ anyhow = "1.0.51"
 [dev-dependencies]
 criterion = "0.3"
 rstest = "0.12.0"
-
-[[bench]]
-name = "genperf"
-harness = false

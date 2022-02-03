@@ -12,76 +12,90 @@ pub mod pbar;
 pub mod parquet_edges;
 #[cfg(test)]
 pub mod tests;
+#[cfg(feature = "benchmark")]
+pub mod benchmark;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ArgEnum, Debug)]
-enum GeneratorMode {
+pub enum GeneratorMode {
     CPU,
     GPU,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ArgEnum, Debug)]
+pub enum RandomMode {
+    PreGenerate,
+    OnDemand,
+}
+
 /// GIRG Generator
 #[derive(Parser, Debug)]
-struct Args {
+pub struct Args {
     /// What generator to use
     #[clap(short, long, arg_enum)]
-    generator: GeneratorMode,
+    pub generator: GeneratorMode,
+    /// How to use the randomness
+    #[clap(long, arg_enum)]
+    pub random_mode: RandomMode,
     /// Number of worker threads
     #[clap(short, long, default_value_t = 1)]
-    workers: usize,
+    pub workers: usize,
     /// Number of vertices
     #[clap(long, default_value_t = 1000)]
-    tile_size: u64,
+    pub tile_size: u64,
     /// Number of vertices
     #[clap(short, long, default_value_t = 1_000_000)]
-    vertices: u64,
+    pub vertices: u64,
     /// Alpha value of the probability function
     #[clap(short, long, default_value_t = 1.5)]
-    alpha: f32,
+    pub alpha: f32,
     /// Alpha value of the pareto distribution
     #[clap(short, long, default_value_t = 1.5)]
-    beta: f32,
+    pub beta: f32,
     /// x_min value of the pareto distribution
     #[clap(short, long, default_value_t = 1.0)]
-    x_min: f32,
+    pub x_min: f32,
     /// Number of spatial dimensions
     #[clap(short, long, default_value_t = 2)]
-    dimensions: usize,
+    pub dimensions: usize,
     /// Number of shards in use.
     #[clap(long, default_value_t = 1)]
-    shard_count: usize,
+    pub shard_count: usize,
     /// Index of this shard. [0,shard_count)
     #[clap(long, default_value_t = 0)]
-    shard_index: usize,
+    pub shard_index: usize,
     /// NVidia Device index
     #[clap(long, default_value_t = 0)]
-    device: u32,
+    pub device: u32,
+    /// Override the amount of blocks used by the gpu.
+    #[clap(long)]
+    pub blocks: Option<u32>,
     #[clap(long, parse(from_os_str), value_hint = ValueHint::FilePath)]
     /// File to write degrees_distribution to
-    output_degrees_distribution: Option<PathBuf>,
+    pub output_degrees_distribution: Option<PathBuf>,
     #[clap(long, parse(from_os_str), value_hint = ValueHint::FilePath)]
     /// File to write degrees to (csv format: node_id, degree)
-    output_degrees_csv: Option<PathBuf>,
+    pub output_degrees_csv: Option<PathBuf>,
     #[clap(long, parse(from_os_str), value_hint = ValueHint::FilePath)]
     /// File to write degrees to (plain text: degree\n)
-    output_degrees_txt: Option<PathBuf>,
+    pub output_degrees_txt: Option<PathBuf>,
     #[clap(long, parse(from_os_str), value_hint = ValueHint::FilePath)]
     /// File to write edges to (csv: i, j)
-    output_edges_csv: Option<PathBuf>,
+    pub output_edges_csv: Option<PathBuf>,
     #[clap(long, parse(from_os_str), value_hint = ValueHint::FilePath)]
     /// File to write edges to (parquet: i, j) (recommended due to compression)
-    output_edges_parquet: Option<PathBuf>,
+    pub output_edges_parquet: Option<PathBuf>,
     #[clap(long, parse(from_os_str), value_hint = ValueHint::FilePath)]
     /// File to write weights to (plain text, one weight per line)
-    output_weights: Option<PathBuf>,
+    pub output_weights: Option<PathBuf>,
     #[clap(long, parse(from_os_str), value_hint = ValueHint::FilePath)]
     /// File to write position to (csv: one column per dimension)
-    output_positions: Option<PathBuf>,
+    pub output_positions: Option<PathBuf>,
     /// Seed values
     #[clap(long, short)]
-    seeds: Option<Vec<u64>>,
+    pub seeds: Option<Vec<u64>>,
     /// Size of the buffer used to hold edges before processing. Effectively edge batch size.
     #[clap(long, default_value_t = 1024)]
-    edgebuffer_size: u64,
+    pub edgebuffer_size: u64,
 }
 
 impl Args {
@@ -91,39 +105,32 @@ impl Args {
 
     pub fn get_params(&self) -> generator_common::params::GenerationParameters<VecSeeds> {
         match self.seeds.as_ref() {
-            None => generator_common::params::GenerationParameters::new(self.dimensions, self.get_pareto(), self.alpha, self.vertices, self.tile_size, self.edgebuffer_size),
-            Some(s) => generator_common::params::GenerationParameters::from_seeds(self.dimensions, self.get_pareto(), self.alpha, self.vertices, s.as_slice(), self.tile_size, self.edgebuffer_size),
+            None => generator_common::params::GenerationParameters::new(
+                self.dimensions,
+                self.get_pareto(),
+                self.alpha,
+                self.vertices,
+                self.tile_size,
+                self.edgebuffer_size,
+                self.random_mode == RandomMode::PreGenerate,
+                self.blocks.clone()
+            ),
+            Some(s) => generator_common::params::GenerationParameters::from_seeds(
+                self.dimensions,
+                self.get_pareto(),
+                self.alpha,
+                self.vertices,
+                s.as_slice(),
+                self.tile_size,
+                self.edgebuffer_size,
+                self.random_mode == RandomMode::PreGenerate,
+                self.blocks.clone()
+            ),
         }
     }
 }
 
-fn main() -> anyhow::Result<()> {
-    let app: Args = Args::parse();
-    pbar::setup_logging();
-
-    if app.shard_index >= app.shard_count {
-        panic!("Shard index must be less than shard count.");
-    }
-
-    if app.dimensions < 1 {
-        panic!("Number of dimensions must be at least 1.");
-    }
-
-    info!("Running using the {:?} generator!", app.generator);
-
-    let ctx: Option<cust::context::Context> = if app.generator == GeneratorMode::GPU {
-        info!("CUDA init...");
-        cust::init(cust::CudaFlags::empty())?;
-        info!("CUDA device get...");
-        let device = cust::device::Device::get_device(app.device)?;
-
-        info!("Device: {} ({} MB)", device.name()?, device.total_memory()? / 1_000_000);
-
-        Some(cust::context::Context::create_and_push(cust::context::ContextFlags::MAP_HOST | cust::context::ContextFlags::SCHED_AUTO, device)?)
-    } else {
-        None
-    };
-
+pub fn run_app(app: Args, ctx: Option<cust::context::Context>) -> anyhow::Result<()> {
     info!("Get params...");
     let params = app.get_params();
 
@@ -266,4 +273,34 @@ fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+pub fn main() -> anyhow::Result<()> {
+    let app: Args = Args::parse();
+    pbar::setup_logging(None);
+
+    if app.shard_index >= app.shard_count {
+        panic!("Shard index must be less than shard count.");
+    }
+
+    if app.dimensions < 1 {
+        panic!("Number of dimensions must be at least 1.");
+    }
+
+    info!("Running using the {:?} generator!", app.generator);
+
+    let ctx: Option<cust::context::Context> = if app.generator == GeneratorMode::GPU {
+        info!("CUDA init...");
+        cust::init(cust::CudaFlags::empty())?;
+        info!("CUDA device get...");
+        let device = cust::device::Device::get_device(app.device)?;
+
+        info!("Device: {} ({} MB)", device.name()?, device.total_memory()? / 1_000_000);
+
+        Some(cust::context::Context::create_and_push(cust::context::ContextFlags::MAP_HOST | cust::context::ContextFlags::SCHED_AUTO, device)?)
+    } else {
+        None
+    };
+
+    run_app(app, ctx)
 }

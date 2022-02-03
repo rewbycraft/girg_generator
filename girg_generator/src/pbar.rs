@@ -61,15 +61,11 @@ impl std::io::Write for PBWriter {
     }
 }
 
-pub fn setup_logging() {
-    std::env::set_var(
-        "RUST_LOG",
-        std::env::var("RUST_LOG").unwrap_or("info".to_string()),
-    );
-
+pub fn setup_logging(log_filter: Option<String>) {
     tracing_subscriber::fmt::fmt()
         .with_writer(move || -> Box<dyn std::io::Write> {
             Box::new(LineWriter::new(PBWriter::new()))
         })
+        .with_env_filter(log_filter.unwrap_or(std::env::var("RUST_LOG").unwrap_or("info".to_string())))
         .init();
 }

@@ -39,7 +39,7 @@ pub fn compute_distance(p_i: &[f32], p_j: &[f32]) -> f32 {
 
 pub fn compute_probability<S: SeedGettable + Sized>(d: f32, w_i: f32, w_j: f32, params: &GenerationParameters<S>) -> f32 {
     if params.alpha.is_infinite() {
-        let v = ((w_i * w_j) / params.w).powf(1.0f32 / 2.0f32);
+        let v = ((w_i * w_j) / params.w).powf(1.0f32 / params.num_dimensions() as f32);
         if d <= v {
             1.0f32
         } else {
@@ -50,7 +50,7 @@ pub fn compute_probability<S: SeedGettable + Sized>(d: f32, w_i: f32, w_j: f32, 
             //The main multiplication
             (((w_i * w_j) / params.w).powf(params.alpha))
                 // 1/dist^(ad)
-                / (d.powf(params.alpha * 2.0f32))
+                / (d.powf(params.alpha * params.num_dimensions() as f32))
         ).min(1.0f32)
     }
 }
@@ -59,12 +59,14 @@ pub fn compute_probability<S: SeedGettable + Sized>(d: f32, w_i: f32, w_j: f32, 
 //See <cuda root>/targets/x86_64-linux/include/CL/cl_platform.h line 192
 //const EPS: f32 = 1.1920928955078125e-7;
 //const EPS: f32 = 9.765625e-04;
-const EPS: f32 = 2.384185791015625e-07;
+//const EPS: f32 = 2.384185791015625e-07;
 
 pub fn generate_edge<S: SeedGettable + Sized>(i: u64, j: u64, w_i: f32, w_j: f32, p_i: &[f32], p_j: &[f32], params: &GenerationParameters<S>) -> bool {
     let d = compute_distance(p_i, p_j);
     let p = compute_probability(d, w_i, w_j, params);
     let rp = random::random_edge(i, j, params.get_seed(SeedEnum::Edge));
+
+    p > rp
 
     //Compute goal: p > rp
 
@@ -73,7 +75,7 @@ pub fn generate_edge<S: SeedGettable + Sized>(i: u64, j: u64, w_i: f32, w_j: f32
     //On the GPU this is effectively saying p is at least one representable number away from rp.
     //In other words, p > rp.
     //On the CPU we simulate the effect of the larger epsilon in order to get the exact same numbers.
-    let diff = p - rp;
-    diff > EPS
+    // let diff = p - rp;
+    // diff > EPS
 }
 
