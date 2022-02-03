@@ -1,5 +1,5 @@
 [package]
-name = "gpu_kernel"
+name = "generator_gpu_kernel"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 cuda_std = { version = "0.2" }
-generator_common = { path = "../generator_common" }
+generator_common = { path = "../../common" }
 
 [target.'cfg(not(target_os = "cuda"))'.dependencies]
 cust = { version = "0.2", features = ["vek"] }

@@ -5,15 +5,15 @@ use std::path::PathBuf;
 use clap::{ArgEnum, Parser, ValueHint};
 use tracing::{debug, info};
 
-use generator_common::params::VecSeeds;
 use crate::parquet_edges::ParquetEdgeWriter;
+use generator_common::params::VecSeeds;
 
-pub mod pbar;
-pub mod parquet_edges;
-#[cfg(test)]
-pub mod tests;
 #[cfg(feature = "benchmark")]
 pub mod benchmark;
+pub mod parquet_edges;
+pub mod pbar;
+#[cfg(test)]
+pub mod tests;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ArgEnum, Debug)]
 pub enum GeneratorMode {
@@ -113,7 +113,7 @@ impl Args {
                 self.tile_size,
                 self.edgebuffer_size,
                 self.random_mode == RandomMode::PreGenerate,
-                self.blocks.clone()
+                self.blocks,
             ),
             Some(s) => generator_common::params::GenerationParameters::from_seeds(
                 self.dimensions,
@@ -124,7 +124,7 @@ impl Args {
                 self.tile_size,
                 self.edgebuffer_size,
                 self.random_mode == RandomMode::PreGenerate,
-                self.blocks.clone()
+                self.blocks,
             ),
         }
     }
@@ -140,7 +140,7 @@ pub fn run_app(app: Args, ctx: Option<cust::context::Context>) -> anyhow::Result
         info!("Writing weights file...");
         let mut f = File::create(&p).expect("Unable to create file");
         for i in params.compute_weights() {
-            write!(f, "{}\n", i).unwrap();
+            writeln!(f, "{}", i).unwrap();
         }
         f.flush().unwrap();
         info!("Done writing!");
@@ -156,12 +156,11 @@ pub fn run_app(app: Args, ctx: Option<cust::context::Context>) -> anyhow::Result
                     write!(f, ",").unwrap();
                 }
             }
-            write!(f, "\n").unwrap();
+            writeln!(f).unwrap();
         }
         f.flush().unwrap();
         info!("Done writing!");
     }
-
 
     let (tile_sender, tile_receiver) = crossbeam_channel::bounded(5);
     let (edge_sender, edge_receiver) = crossbeam_channel::bounded(100);
@@ -170,10 +169,33 @@ pub fn run_app(app: Args, ctx: Option<cust::context::Context>) -> anyhow::Result
     pbar::create_progress_bar(params.num_tiles());
 
     let mut handles = match app.generator {
-        GeneratorMode::GPU => generator_common::threads::start_workers::<gpu_generator::GPUGenerator>(&ctx, app.workers, edge_sender, finish_sender, tile_receiver, &params),
-        GeneratorMode::CPU => generator_common::threads::start_workers::<cpu_generator::CPUGenerator>(&ctx, app.workers, edge_sender, finish_sender, tile_receiver, &params),
+        GeneratorMode::GPU => {
+            generator_common::threads::start_workers::<generator_gpu::GPUGenerator>(
+                &ctx,
+                app.workers,
+                edge_sender,
+                finish_sender,
+                tile_receiver,
+                &params,
+            )
+        }
+        GeneratorMode::CPU => {
+            generator_common::threads::start_workers::<generator_cpu::CPUGenerator>(
+                &ctx,
+                app.workers,
+                edge_sender,
+                finish_sender,
+                tile_receiver,
+                &params,
+            )
+        }
     };
-    handles.push(generator_common::threads::start_generate_tiles_thread(tile_sender, &params, app.shard_index, app.shard_count));
+    handles.push(generator_common::threads::start_generate_tiles_thread(
+        tile_sender,
+        &params,
+        app.shard_index,
+        app.shard_count,
+    ));
 
     let mut degree_counters: Vec<usize> = Vec::new();
     degree_counters.resize(app.vertices as usize, 0usize);
@@ -196,9 +218,7 @@ pub fn run_app(app: Args, ctx: Option<cust::context::Context>) -> anyhow::Result
             wtr
         });
 
-        let mut parquet_wtr = app.output_edges_parquet.map(|p| {
-            ParquetEdgeWriter::new(p)
-        });
+        let mut parquet_wtr = app.output_edges_parquet.map(ParquetEdgeWriter::new);
 
         for edge_tile in edge_receiver {
             if let Some(wtr) = parquet_wtr.as_mut() {
@@ -209,10 +229,10 @@ pub fn run_app(app: Args, ctx: Option<cust::context::Context>) -> anyhow::Result
                 edge_counter += 1;
                 *degree_counters.get_mut(i as usize).unwrap() += 1;
                 if let Some(wtr) = csv_wtr.as_mut() {
-                    wtr.write_record(&[format!("{}", i), format!("{}", j)]).unwrap();
+                    wtr.write_record(&[format!("{}", i), format!("{}", j)])
+                        .unwrap();
                 }
             }
-
         }
 
         if let Some(wtr) = csv_wtr.as_mut() {
@@ -241,7 +261,8 @@ pub fn run_app(app: Args, ctx: Option<cust::context::Context>) -> anyhow::Result
         let mut wtr = csv::Writer::from_path(&p).unwrap();
         wtr.write_record(&["node_id", "degree"]).unwrap();
         for (i, j) in degree_counters.iter().enumerate() {
-            wtr.write_record(&[format!("{}", i), format!("{}", *j)]).unwrap();
+            wtr.write_record(&[format!("{}", i), format!("{}", *j)])
+                .unwrap();
         }
         wtr.flush().unwrap();
         info!("Done writing!");
@@ -251,22 +272,23 @@ pub fn run_app(app: Args, ctx: Option<cust::context::Context>) -> anyhow::Result
         info!("Writing degree txt...");
         let mut f = File::create(&p).expect("Unable to create file");
         for i in degree_counters.iter() {
-            write!(f, "{}\n", i).unwrap();
+            writeln!(f, "{}", i).unwrap();
         }
         f.flush().unwrap();
         info!("Done writing!");
     }
 
-
     if let Some(p) = app.output_degrees_distribution {
         info!("Writing degree distribution csv...");
         let mut wtr = csv::Writer::from_path(&p).unwrap();
-        wtr.write_record(&["x", "number of nodes with degree > x / number of nodes"]).unwrap();
+        wtr.write_record(&["x", "number of nodes with degree > x / number of nodes"])
+            .unwrap();
         for x in 0..=degree_counters.len() {
             let s: f64 = degree_counters.iter().filter(|&d| *d > x as usize).count() as f64;
             let v = s / (degree_counters.len() as f64);
             let x = x as f64;
-            wtr.write_record(&[format!("{}", x), format!("{}", v)]).unwrap();
+            wtr.write_record(&[format!("{}", x), format!("{}", v)])
+                .unwrap();
         }
         wtr.flush().unwrap();
         info!("Done writing!");
@@ -295,9 +317,16 @@ pub fn main() -> anyhow::Result<()> {
         info!("CUDA device get...");
         let device = cust::device::Device::get_device(app.device)?;
 
-        info!("Device: {} ({} MB)", device.name()?, device.total_memory()? / 1_000_000);
+        info!(
+            "Device: {} ({} MB)",
+            device.name()?,
+            device.total_memory()? / 1_000_000
+        );
 
-        Some(cust::context::Context::create_and_push(cust::context::ContextFlags::MAP_HOST | cust::context::ContextFlags::SCHED_AUTO, device)?)
+        Some(cust::context::Context::create_and_push(
+            cust::context::ContextFlags::MAP_HOST | cust::context::ContextFlags::SCHED_AUTO,
+            device,
+        )?)
     } else {
         None
     };

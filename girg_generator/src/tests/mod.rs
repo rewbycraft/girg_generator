@@ -4,8 +4,8 @@
 // use rstest::*;
 // use tracing::{debug, info, instrument};
 //
-// use generator_common::params::{DIMENSIONS, GenerationParameters};
-// use generator_common::random::ParetoDistribution;
+// use common::params::{DIMENSIONS, GenerationParameters};
+// use common::random::ParetoDistribution;
 //
 // use crate::GeneratorMode;
 //
@@ -54,10 +54,10 @@
 //     let (finish_sender, finish_receiver) = crossbeam_channel::bounded(10000);
 //
 //     let mut handles = match generator {
-//         GeneratorMode::GPU => generator_common::threads::start_workers::<gpu_generator::GPUGenerator>(&ctx, 1, edge_sender, finish_sender, tile_receiver, &params),
-//         GeneratorMode::CPU => generator_common::threads::start_workers::<cpu_generator::CPUGenerator>(&ctx, 4, edge_sender, finish_sender, tile_receiver, &params),
+//         GeneratorMode::GPU => common::threads::start_workers::<gpu::GPUGenerator>(&ctx, 1, edge_sender, finish_sender, tile_receiver, &params),
+//         GeneratorMode::CPU => common::threads::start_workers::<cpu::CPUGenerator>(&ctx, 4, edge_sender, finish_sender, tile_receiver, &params),
 //     };
-//     handles.push(generator_common::threads::start_generate_tiles_thread(tile_sender, &params));
+//     handles.push(common::threads::start_generate_tiles_thread(tile_sender, &params));
 //
 //
 //     handles.push(std::thread::spawn(move || {
@@ -152,7 +152,7 @@
 //     //     info!("d: {}", d);
 //     //     let p = compute_probability(d, w_i, w_j, &params);
 //     //     info!("p: {}", p);
-//     //     let rp = generator_common::random::random_edge(i, j, params.get_seed(SeedEnum::Edge));
+//     //     let rp = common::random::random_edge(i, j, params.get_seed(SeedEnum::Edge));
 //     //     info!("rp: {}", rp);
 //     //     let diff = p - rp;
 //     //     info!("diff: {}", diff);

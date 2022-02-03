@@ -44,7 +44,10 @@ impl VecSeeds {
         cust::memory::DeviceBuffer::from_slice(&self.seeds)
     }
     #[cfg(not(target_os = "cuda"))]
-    pub unsafe fn get_dbuffer_async(&self, stream: &cust::stream::Stream) -> cust::error::CudaResult<cust::memory::DeviceBuffer<u64>> {
+    pub unsafe fn get_dbuffer_async(
+        &self,
+        stream: &cust::stream::Stream,
+    ) -> cust::error::CudaResult<cust::memory::DeviceBuffer<u64>> {
         cust::memory::DeviceBuffer::from_slice_async(&self.seeds, stream)
     }
 }
@@ -69,7 +72,6 @@ impl SeedGettable for RawSeeds {
     }
 }
 
-
 #[derive(Debug, Clone)]
 #[cfg_attr(not(target_os = "cuda"), derive(cust::DeviceCopy, Copy))]
 pub struct GenerationParameters<S: SeedGettable + Sized> {
@@ -87,10 +89,13 @@ pub struct GenerationParameters<S: SeedGettable + Sized> {
 
 impl GenerationParameters<RawSeeds> {
     #[cfg(not(target_os = "cuda"))]
-    pub fn from_vecseeds_and_device_ptr(vseeds: &GenerationParameters<VecSeeds>, device_ptr: cust::memory::DevicePointer<u64>) -> Self {
+    pub fn from_vecseeds_and_device_ptr(
+        vseeds: &GenerationParameters<VecSeeds>,
+        device_ptr: cust::memory::DevicePointer<u64>,
+    ) -> Self {
         Self {
             seeds: RawSeeds {
-                seeds: device_ptr.as_raw()
+                seeds: device_ptr.as_raw(),
             },
             pregenerate_numbers: vseeds.pregenerate_numbers,
             gpu_blocks: vseeds.gpu_blocks,
@@ -107,15 +112,50 @@ impl GenerationParameters<RawSeeds> {
 
 #[cfg(not(target_os = "cuda"))]
 impl GenerationParameters<VecSeeds> {
-    pub fn new(num_dimensions: usize, pareto: random::ParetoDistribution, alpha: f32, v: u64, tile_size: u64, edgebuffer_size: u64, pregenerate_numbers: bool, gpu_blocks: Option<u32>) -> Self {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        num_dimensions: usize,
+        pareto: random::ParetoDistribution,
+        alpha: f32,
+        v: u64,
+        tile_size: u64,
+        edgebuffer_size: u64,
+        pregenerate_numbers: bool,
+        gpu_blocks: Option<u32>,
+    ) -> Self {
         let seeds: Vec<u64> = random::generate_seeds(num_dimensions + 2);
 
-        Self::from_seeds(num_dimensions, pareto, alpha, v, &seeds, tile_size, edgebuffer_size, pregenerate_numbers, gpu_blocks)
+        Self::from_seeds(
+            num_dimensions,
+            pareto,
+            alpha,
+            v,
+            &seeds,
+            tile_size,
+            edgebuffer_size,
+            pregenerate_numbers,
+            gpu_blocks,
+        )
     }
 
-    pub fn from_seeds(num_dimensions: usize, pareto: random::ParetoDistribution, alpha: f32, v: u64, seeds: &[u64], tile_size: u64, edgebuffer_size: u64, pregenerate_numbers: bool, gpu_blocks: Option<u32>) -> Self {
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_seeds(
+        num_dimensions: usize,
+        pareto: random::ParetoDistribution,
+        alpha: f32,
+        v: u64,
+        seeds: &[u64],
+        tile_size: u64,
+        edgebuffer_size: u64,
+        pregenerate_numbers: bool,
+        gpu_blocks: Option<u32>,
+    ) -> Self {
         if seeds.len() != num_dimensions + 2 {
-            panic!("Invalid seeds length: {} != {}", seeds.len(), num_dimensions + 2);
+            panic!(
+                "Invalid seeds length: {} != {}",
+                seeds.len(),
+                num_dimensions + 2
+            );
         }
 
         let mut s = Self {
@@ -180,8 +220,8 @@ impl<S: SeedGettable + Sized> GenerationParameters<S> {
     }
 
     pub fn fill_dims(&self, j: u64, p: &mut [f32]) {
-        for d in 0..self.num_dimensions() {
-            p[d] = self.compute_property(j, SeedEnum::Dimension(d));
+        for (d, p) in p.iter_mut().enumerate() {
+            *p = self.compute_property(j, SeedEnum::Dimension(d));
         }
     }
 
@@ -196,12 +236,13 @@ impl<S: SeedGettable + Sized> GenerationParameters<S> {
             .flat_map(|j| {
                 vec![self.compute_weight(j)]
                     .into_iter()
-                    .chain((0..self.num_dimensions())
-                        .map(|d|
-                            self.compute_property(j, SeedEnum::Dimension(d))
-                        ))
+                    .chain(
+                        (0..self.num_dimensions())
+                            .map(|d| self.compute_property(j, SeedEnum::Dimension(d))),
+                    )
                     .collect::<Vec<f32>>()
-            }).collect()
+            })
+            .collect()
     }
 
     #[cfg(not(target_os = "cuda"))]

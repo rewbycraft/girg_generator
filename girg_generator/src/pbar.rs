@@ -37,13 +37,8 @@ pub fn finish_progress_bar() {
     *pb = None;
 }
 
+#[derive(Default)]
 pub struct PBWriter {}
-
-impl PBWriter {
-    pub fn new() -> Self {
-        PBWriter {}
-    }
-}
 
 impl std::io::Write for PBWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
@@ -64,8 +59,12 @@ impl std::io::Write for PBWriter {
 pub fn setup_logging(log_filter: Option<String>) {
     tracing_subscriber::fmt::fmt()
         .with_writer(move || -> Box<dyn std::io::Write> {
-            Box::new(LineWriter::new(PBWriter::new()))
+            Box::new(LineWriter::new(PBWriter::default()))
         })
-        .with_env_filter(log_filter.unwrap_or(std::env::var("RUST_LOG").unwrap_or("info".to_string())))
+        .with_env_filter(
+            log_filter.unwrap_or_else(|| {
+                std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string())
+            }),
+        )
         .init();
 }

@@ -95,3 +95,28 @@ The results and reports will be in `target/criterion/`.
 
 #### Setup an IDE
 This software has been developed using Intellij IDEA with the Rust plugin.
+
+##### Tips
+
+You might want to add the following to your `$HOME/.cargo/config.toml`:
+```toml
+[env]
+LLVM_LINK_SHARED = "1"
+LLVM_CONFIG = "/usr/bin/llvm-config-7"
+LLVM7_LD_LIBRARY_PATH = "/usr/local/cuda-11.3/nvvm/lib64"
+
+[target.x86_64-unknown-linux-gnu.rustc_codegen_nvvm]
+rustc-env = { LD_LIBRARY_PATH = "/usr/local/cuda-11.3/nvvm/lib64" }
+```
+
+On Arch Linux the following is useful to add to `$HOME/.cargo/config.toml` to make intellij work correctly:
+
+```toml
+[env]
+LLVM_LINK_SHARED = "1"
+LLVM7_LD_LIBRARY_PATH = "/opt/llvm70/lib"
+LLVM_CONFIG = "/opt/llvm70/bin/llvm-config"
+
+[target.x86_64-unknown-linux-gnu.rustc_codegen_nvvm]
+rustc-env = { LD_LIBRARY_PATH = "/opt/llvm70/lib" }
+```

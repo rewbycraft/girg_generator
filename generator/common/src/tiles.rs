@@ -42,8 +42,8 @@ impl Iterator for TilesIterator {
 
 #[cfg(test)]
 mod tests {
-    use rstest::*;
     use super::*;
+    use rstest::*;
 
     #[rstest]
     #[case(10000, 2000)]
@@ -61,7 +61,7 @@ mod tests {
         let max_x: u64 = iter.clone().map(|((_, _), (x, _))| x).max().unwrap();
         assert_eq!(max_x, vertices, "testing max_x");
 
-        let max_y: u64 = iter.clone().map(|((_, _), (_, x))| x).max().unwrap();
+        let max_y: u64 = iter.map(|((_, _), (_, x))| x).max().unwrap();
         assert_eq!(max_y, vertices, "testing max_x");
     }
 }

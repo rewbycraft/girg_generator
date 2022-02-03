@@ -1,5 +1,5 @@
 [package]
-name = "cpu_generator"
+name = "generator_cpu"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 
-generator_common = { path = "../generator_common" }
+generator_common = { path = "../common" }
 
 crossbeam-channel = "0.5.1"
 tracing = "0.1"

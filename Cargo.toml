@@ -1,9 +1,9 @@
 [workspace]
 
 members = [
-    "generator_common",
-    "cpu_generator",
-    "gpu_kernel",
-    "gpu_generator",
+    "generator/common",
+    "generator/cpu",
+    "generator/gpu/kernel",
+    "generator/gpu",
     "girg_generator",
 ]

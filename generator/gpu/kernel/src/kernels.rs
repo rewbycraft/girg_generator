@@ -1,11 +1,15 @@
 use cuda_std::prelude::*;
 
-use generator_common::{compute_distance, compute_probability, generate_edge, random};
 use generator_common::params::SeedEnum;
+use generator_common::{compute_distance, compute_probability, generate_edge, random};
 
 #[kernel]
 #[allow(improper_ctypes_definitions, clippy::missing_safety_doc)]
-pub unsafe fn generator_kernel(ts: *mut crate::state::gpu::GPUThreadState, params: &generator_common::params::GenerationParameters<generator_common::params::RawSeeds>, variables: &[f32]) {
+pub unsafe fn generator_kernel(
+    ts: *mut crate::state::gpu::GPUThreadState,
+    params: &generator_common::params::GenerationParameters<generator_common::params::RawSeeds>,
+    variables: &[f32],
+) {
     let ts = &mut *ts;
     if thread::index_1d() >= ts.num_threads as u32 {
         panic!("too many threads");
@@ -29,7 +33,8 @@ pub unsafe fn generator_kernel(ts: *mut crate::state::gpu::GPUThreadState, param
         }
     };
     let ps = |i: u64| {
-        &variables[(((i as usize) * (params.num_dimensions() + 1)) + 1)..(((i as usize) * (params.num_dimensions() + 1)) + (params.num_dimensions() + 1))]
+        &variables[(((i as usize) * (params.num_dimensions() + 1)) + 1)
+            ..(((i as usize) * (params.num_dimensions() + 1)) + (params.num_dimensions() + 1))]
     };
 
     let (start, end) = params.pos_to_tile(ts.get_x(), ts.get_y());
@@ -51,14 +56,7 @@ pub unsafe fn generator_kernel(ts: *mut crate::state::gpu::GPUThreadState, param
             &p_j_prime
         };
 
-        if generate_edge(i,
-                         j,
-                         w(i),
-                         w(j),
-                         ps_i,
-                         ps_j,
-                         params)
-        {
+        if generate_edge(i, j, w(i), w(j), ps_i, ps_j, params) {
             if !ts.can_add_edge() {
                 // No more space in buffer, abort!
                 ts.set_done(false);
@@ -87,4 +85,3 @@ pub unsafe fn generator_kernel(ts: *mut crate::state::gpu::GPUThreadState, param
         }
     }
 }
-

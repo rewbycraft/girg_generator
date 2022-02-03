@@ -48,7 +48,6 @@ pub fn murmur3_32_3(s1: u64, s2: u64, s3: u64) -> u32 {
     process_64(s2);
     process_64(s3);
 
-
     finish(state, processed)
 }
 
@@ -120,11 +119,13 @@ mod tests {
             let s2: u64 = rng.gen();
             let s3: u64 = rng.gen();
 
-            let expected = murmurhash3_x86_32(&[s1.to_be_bytes(), s2.to_be_bytes(), s3.to_be_bytes()].concat(), 0);
+            let expected = murmurhash3_x86_32(
+                &[s1.to_be_bytes(), s2.to_be_bytes(), s3.to_be_bytes()].concat(),
+                0,
+            );
             let actual = murmur3_32_3(s1, s2, s3);
             assert_eq!(actual, expected, "hashing [{}, {}, {}]", s1, s2, s3);
         }
-
     }
 
     #[test]
@@ -139,6 +140,5 @@ mod tests {
             let actual = murmur3_32_2(s1, s2);
             assert_eq!(actual, expected, "hashing [{}, {}]", s1, s2);
         }
-
     }
 }

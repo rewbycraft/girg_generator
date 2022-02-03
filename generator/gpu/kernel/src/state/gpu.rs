@@ -68,5 +68,4 @@ impl GPUThreadState {
 
         self.increment_edge_count(1);
     }
-
 }

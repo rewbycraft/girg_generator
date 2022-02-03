@@ -6,7 +6,7 @@ See instructions on https://rustup.rs/
 ## Running the node_degrees tool
 Replace `--help` with the arguments you wish to use after reading `--help`.
 ```sh
-cargo run --package cpu_generator --release --bin node_degrees -- --help
+cargo run --package cpu --release --bin node_degrees -- --help
 ```
 
 ### Defaults
@@ -23,5 +23,5 @@ Default values:
 
 If the defaults are fine, run it as follows:
 ```sh
-cargo run --package cpu_generator --release --bin node_degrees
+cargo run --package cpu --release --bin node_degrees
 ```

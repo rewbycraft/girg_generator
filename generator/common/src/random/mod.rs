@@ -37,8 +37,7 @@ pub fn random_edge(i: u64, j: u64, seed: u64) -> f32 {
     let h = murmur3::murmur3_32_3(i, j, seed);
     let h = h as f64;
     let v = h / (u32::MAX as f64);
-    let p = v as f32;
-    p
+    v as f32
 }
 
 #[cfg(not(target_os = "cuda"))]
@@ -52,7 +51,7 @@ pub fn generate_seeds(n: usize) -> Vec<u64> {
     for i in 0..n {
         loop {
             let r: u64 = rng.gen();
-            if (i == 0) || (!(seeds[0..(i-1)].contains(&r))) {
+            if (i == 0) || (!(seeds[0..(i - 1)].contains(&r))) {
                 seeds[i] = r;
                 break;
             }
