@@ -77,7 +77,7 @@ impl SeedGettable for RawSeeds {
 pub struct GenerationParameters<S: SeedGettable + Sized> {
     pub seeds: S,
     pub pregenerate_numbers: bool,
-    pub gpu_blocks: Option<u32>,
+    pub gpu_blocks: u32,
     dims: usize,
     pub pareto: random::ParetoDistribution,
     pub alpha: f32,
@@ -85,6 +85,8 @@ pub struct GenerationParameters<S: SeedGettable + Sized> {
     pub v: u64,
     pub tile_size: u64,
     pub edgebuffer_size: u64,
+    pub shard_index: usize,
+    pub shard_count: usize,
 }
 
 impl GenerationParameters<RawSeeds> {
@@ -106,6 +108,8 @@ impl GenerationParameters<RawSeeds> {
             v: vseeds.v,
             tile_size: vseeds.tile_size,
             edgebuffer_size: vseeds.edgebuffer_size,
+            shard_index: vseeds.shard_index,
+            shard_count: vseeds.shard_count,
         }
     }
 }
@@ -121,7 +125,9 @@ impl GenerationParameters<VecSeeds> {
         tile_size: u64,
         edgebuffer_size: u64,
         pregenerate_numbers: bool,
-        gpu_blocks: Option<u32>,
+        gpu_blocks: u32,
+        shard_index: usize,
+        shard_count: usize,
     ) -> Self {
         let seeds: Vec<u64> = random::generate_seeds(num_dimensions + 2);
 
@@ -135,6 +141,8 @@ impl GenerationParameters<VecSeeds> {
             edgebuffer_size,
             pregenerate_numbers,
             gpu_blocks,
+            shard_index,
+            shard_count,
         )
     }
 
@@ -148,7 +156,9 @@ impl GenerationParameters<VecSeeds> {
         tile_size: u64,
         edgebuffer_size: u64,
         pregenerate_numbers: bool,
-        gpu_blocks: Option<u32>,
+        gpu_blocks: u32,
+        shard_index: usize,
+        shard_count: usize,
     ) -> Self {
         if seeds.len() != num_dimensions + 2 {
             panic!(
@@ -171,6 +181,8 @@ impl GenerationParameters<VecSeeds> {
             v,
             tile_size,
             edgebuffer_size,
+            shard_index,
+            shard_count,
         };
 
         s.compute_w();
@@ -246,13 +258,15 @@ impl<S: SeedGettable + Sized> GenerationParameters<S> {
     }
 
     #[cfg(not(target_os = "cuda"))]
-    pub fn tiles(&self) -> super::tiles::TilesIterator {
+    pub fn tiles(&self) -> impl Iterator<Item = super::tiles::Tile> {
         super::tiles::TilesIterator::new(self.v, self.tile_size)
+            .skip(self.shard_index)
+            .step_by(self.shard_count)
     }
 
     #[cfg(not(target_os = "cuda"))]
     pub fn num_tiles(&self) -> u64 {
-        num_integer::div_ceil(self.v, self.tile_size).pow(2)
+        num_integer::div_ceil(self.v, self.tile_size).pow(2) / (self.shard_count as u64)
     }
 
     pub fn pos_to_tile(&self, x: u64, y: u64) -> ((u64, u64), (u64, u64)) {

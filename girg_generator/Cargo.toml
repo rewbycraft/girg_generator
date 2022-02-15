@@ -14,7 +14,7 @@ crossbeam-channel = "0.5.1"
 tracing = "0.1"
 tracing-subscriber = "0.2.0"
 clap = { version = "3.0.0-rc.4", features = ["derive"] }
-anyhow = "1.0.51"
+anyhow = { version = "1", features = [ "backtrace" ] }
 
 once_cell = "1.9.0"
 indicatif = "0.16.2"
@@ -32,6 +32,7 @@ rstest = "0.12.0"
 [features]
 
 benchmark = [ "num_cpus", "criterion" ]
+gpu = []
 
 [[bench]]
 name = "cpu_core_scaling"
@@ -41,7 +42,7 @@ required-features = ["benchmark"]
 [[bench]]
 name = "gpu_core_scaling"
 harness = false
-required-features = ["benchmark"]
+required-features = ["benchmark", "gpu"]
 
 [[bench]]
 name = "cpu_size_scaling"
@@ -51,4 +52,14 @@ required-features = ["benchmark"]
 [[bench]]
 name = "gpu_size_scaling"
 harness = false
+required-features = ["benchmark", "gpu"]
+
+[[bench]]
+name = "cpu_tile_scaling"
+harness = false
 required-features = ["benchmark"]
+
+[[bench]]
+name = "gpu_tile_scaling"
+harness = false
+required-features = ["benchmark", "gpu"]

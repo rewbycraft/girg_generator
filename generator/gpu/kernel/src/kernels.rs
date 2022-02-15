@@ -1,7 +1,7 @@
 use cuda_std::prelude::*;
 
 use generator_common::params::SeedEnum;
-use generator_common::{compute_distance, compute_probability, generate_edge, random};
+use generator_common::{compute_distance, compute_probability, generate_edge, random, MAX_DIMS};
 
 #[kernel]
 #[allow(improper_ctypes_definitions, clippy::missing_safety_doc)]
@@ -20,10 +20,8 @@ pub unsafe fn generator_kernel(
         return;
     }
 
-    let mut p_i_prime = Vec::new();
-    let mut p_j_prime = Vec::new();
-    p_i_prime.resize(params.num_dimensions(), 0.0f32);
-    p_j_prime.resize(params.num_dimensions(), 0.0f32);
+    let mut p_i_prime = [0.0f32; MAX_DIMS];
+    let mut p_j_prime = [0.0f32; MAX_DIMS];
 
     let w = |i: u64| {
         if params.pregenerate_numbers {
@@ -46,14 +44,14 @@ pub unsafe fn generator_kernel(
         let ps_i: &[f32] = if params.pregenerate_numbers {
             ps(i)
         } else {
-            params.fill_dims(i, &mut p_i_prime);
-            &p_i_prime
+            params.fill_dims(i, &mut p_i_prime[0..params.num_dimensions()]);
+            &p_i_prime[0..params.num_dimensions()]
         };
         let ps_j: &[f32] = if params.pregenerate_numbers {
             ps(j)
         } else {
-            params.fill_dims(j, &mut p_j_prime);
-            &p_j_prime
+            params.fill_dims(j, &mut p_j_prime[0..params.num_dimensions()]);
+            &p_j_prime[0..params.num_dimensions()]
         };
 
         if generate_edge(i, j, w(i), w(j), ps_i, ps_j, params) {

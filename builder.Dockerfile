@@ -18,6 +18,9 @@ RUN apt-get update && apt-get install -y \
     cuda-11-3 \
     libssl-dev \
     llvm-7 \
+    llvm-7-dev \
+    llvm-7-tools \
+    llvm-7-runtime \
     libnvvm3 \
     && rm -rf /var/lib/apt/lists/*
 

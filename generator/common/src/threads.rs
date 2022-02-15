@@ -8,22 +8,18 @@ use tracing::{info, instrument};
 pub fn start_generate_tiles_thread(
     sender: Sender<((u64, u64), (u64, u64))>,
     params: &GenerationParameters<VecSeeds>,
-    shard_index: usize,
-    shard_count: usize,
 ) -> JoinHandle<()> {
     let params = params.clone();
-    std::thread::spawn(move || generate_tiles(sender, &params, shard_index, shard_count))
+    std::thread::spawn(move || generate_tiles(sender, &params))
 }
 
 pub fn generate_tiles(
     sender: Sender<((u64, u64), (u64, u64))>,
     params: &GenerationParameters<VecSeeds>,
-    shard_index: usize,
-    shard_count: usize,
 ) {
     info!("Emitting tiles...");
 
-    for tile in params.tiles().skip(shard_index).step_by(shard_count) {
+    for tile in params.tiles() {
         sender.send(tile).unwrap();
     }
 

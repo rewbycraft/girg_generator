@@ -34,7 +34,7 @@ pub struct Args {
     #[clap(short, long, arg_enum)]
     pub generator: GeneratorMode,
     /// How to use the randomness
-    #[clap(long, arg_enum)]
+    #[clap(long, arg_enum, default_value_t = RandomMode::PreGenerate)]
     pub random_mode: RandomMode,
     /// Number of worker threads
     #[clap(short, long, default_value_t = 1)]
@@ -113,7 +113,9 @@ impl Args {
                 self.tile_size,
                 self.edgebuffer_size,
                 self.random_mode == RandomMode::PreGenerate,
-                self.blocks,
+                self.blocks.unwrap_or(0),
+                self.shard_index,
+                self.shard_count,
             ),
             Some(s) => generator_common::params::GenerationParameters::from_seeds(
                 self.dimensions,
@@ -124,7 +126,9 @@ impl Args {
                 self.tile_size,
                 self.edgebuffer_size,
                 self.random_mode == RandomMode::PreGenerate,
-                self.blocks,
+                self.blocks.unwrap_or(0),
+                self.shard_index,
+                self.shard_count,
             ),
         }
     }
@@ -193,8 +197,6 @@ pub fn run_app(app: Args, ctx: Option<cust::context::Context>) -> anyhow::Result
     handles.push(generator_common::threads::start_generate_tiles_thread(
         tile_sender,
         &params,
-        app.shard_index,
-        app.shard_count,
     ));
 
     let mut degree_counters: Vec<usize> = Vec::new();

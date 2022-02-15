@@ -17,7 +17,7 @@ num-integer = { version = "0.1.44", default-features = false }
 rand = "0.8.4"
 tracing = "0.1"
 crossbeam-channel = "0.5.1"
-anyhow = "1.0.51"
+anyhow = { version = "1", features = [ "backtrace" ] }
 
 [target.'cfg(not(target_os = "cuda"))'.dev-dependencies]
 rstest = "0.12.0"

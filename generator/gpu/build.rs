@@ -45,9 +45,9 @@ fn main() {
     //Specify nvidia build arch.
     builder.arch = NvvmArch::Compute50;
 
-    let out_dir = std::env::var_os("OUT_DIR").unwrap();
-    let dest_path = std::path::Path::new(&out_dir).join("kernel.ptx");
-    let output = builder.copy_to(dest_path).build().unwrap();
+    // let out_dir = std::env::var_os("OUT_DIR").unwrap();
+    // let dest_path = std::path::Path::new(&out_dir).join("kernel.ptx");
+    let output = builder/*.copy_to(dest_path)*/.build().unwrap();
     println!(
         "cargo:rustc-env=KERNEL_PTX_PATH={}",
         output.as_path().display()

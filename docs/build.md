@@ -32,7 +32,7 @@ sudo apt-get install -y \
 # Add the nvidia repo
 sudo curl -o /etc/apt/preferences.d/cuda-repository-pin-600 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin
 sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/7fa2af80.pub
-sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /" && rm -rf /var/lib/apt/lists/*
+sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /"
 
 # Install packages
 sudo apt-get update
@@ -53,7 +53,10 @@ sudo apt-get update
 sudo apt-get install -y \
     build-essential \
     libssl-dev \
-    llvm-7
+    llvm-7 \
+    llvm-7-dev \
+    llvm-7-tools \
+    llvm-7-runtime
 ```
 
 ### Install rust

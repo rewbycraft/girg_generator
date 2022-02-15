@@ -17,8 +17,10 @@ impl TilesIterator {
     }
 }
 
+pub type Tile = ((u64, u64), (u64, u64));
+
 impl Iterator for TilesIterator {
-    type Item = ((u64, u64), (u64, u64));
+    type Item = Tile;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.j >= self.vertices {

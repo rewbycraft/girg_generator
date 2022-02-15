@@ -21,6 +21,9 @@ pub mod threads;
 #[cfg(not(target_os = "cuda"))]
 pub mod tiles;
 
+// This tells you how many dimensions you can have at maximum when doing GPU computing using on-demand.
+pub const MAX_DIMS: usize = 2;
+
 trait PositionGetter {
     fn get_position(&self, node: u64, dimension: usize) -> f32;
 }
