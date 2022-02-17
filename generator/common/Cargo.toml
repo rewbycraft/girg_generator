@@ -1,18 +1,15 @@
 [package]
-name = "generator_common"
+name = "generator-common"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+gpu = [ "generator-core/gpu" ]
+
 [dependencies]
-cuda_std = { version = "0.2" }
-no-std-compat = "0.4.1"
-
-
-[target.'cfg(not(target_os = "cuda"))'.dependencies]
-cust = { version = "0.2", features = ["vek"] }
-derivative = "2.2.0"
+generator-core = { path = "../core" }
 num-integer = { version = "0.1.44", default-features = false }
 rand = "0.8.4"
 tracing = "0.1"
@@ -20,6 +17,4 @@ crossbeam-channel = "0.5.1"
 anyhow = { version = "1", features = [ "backtrace" ] }
 
 [target.'cfg(not(target_os = "cuda"))'.dev-dependencies]
-rstest = "0.12.0"
-mur3 = "0.1.0"
-rand_xoshiro = "0.6.0"
+rstest = "0.12"

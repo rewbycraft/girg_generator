@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crossbeam_channel::{Receiver, Sender};
 use cust::error::CudaResult;
 use cust::memory::{DeviceBox, GpuBuffer};
@@ -5,20 +6,33 @@ use cust::prelude::*;
 use generator_common::generator::GraphGenerator;
 use tracing::{debug, info, instrument, warn};
 use anyhow::Context;
+use once_cell::sync::OnceCell;
 use generator_common::MAX_DIMS;
 
 use generator_common::params::{GenerationParameters, VecSeeds};
+use generator_common::params::ext::GenerationParametersExt;
+use crate::state::cpu::CPUThreadState;
+use crate::cudaext::GenerationParametersCudaExt;
+
+mod state;
+mod cudaext;
 
 static PTX: &str = include_str!(env!("KERNEL_PTX_PATH"));
 
+pub trait GPUGeneratorArguments: Sync + Send {
+    fn get_device(&self) -> u32;
+}
+
 pub struct GPUGenerator {
     module: Module,
+    #[allow(dead_code)]
+    context: cust::context::Context,
 }
 
 impl GPUGenerator {
     fn launch_run(
         &self,
-        cpu_state: &mut generator_gpu_kernel::state::cpu::CPUThreadState,
+        cpu_state: &mut CPUThreadState,
         grid_size: u32,
         block_size: u32,
         stream: &Stream,
@@ -28,22 +42,21 @@ impl GPUGenerator {
         info!("Starting a run...");
 
         if params.num_dimensions() > MAX_DIMS && !params.pregenerate_numbers {
-            panic!("On-Demand GPU Computation requires you have at most {} dimensions. If more are needed, adjust MAX_DIMS in generator/common/lib.rs at the cost of GPU performance.", MAX_DIMS);
+            panic!("On-Demand GPU Computation requires you have at most {} dimensions. If more are needed, adjust MAX_DIMS in generator/core/lib.rs at the cost of GPU performance.", MAX_DIMS);
         }
 
         let kernel_function = self.module.get_function("generator_kernel").context("get_kernel_function")?;
 
         // Queue up the commands to the GPU.
+
+        // Need to keep _seed_buffer around so it doesn't get dropped.
+        let (params_raw, _seed_buffer) = unsafe { params.as_rawseeds_async(stream) }.expect("to construct the params");
+
         unsafe {
-            let seeds_buffer = params.seeds.get_dbuffer_async(stream).expect("get_dbuffer_async");
-            let params_raw = GenerationParameters::from_vecseeds_and_device_ptr(
-                params,
-                seeds_buffer.as_device_ptr(),
-            );
-            let mut params_d = DeviceBox::new(&params_raw).expect("device_box params");
+            let params_d = DeviceBox::new(&params_raw).expect("device_box params");
             cpu_state.copy_to_device_async(stream).expect("cpu_state_copy_to_device");
 
-            let mut gpu_state = cpu_state.create_gpu_state().context("create_gpu_state")?;
+            let gpu_state = cpu_state.create_gpu_state().context("create_gpu_state")?;
 
             stream.synchronize().expect("synchronize");
             launch!(
@@ -70,16 +83,40 @@ impl GPUGenerator {
 }
 
 pub fn suggested_launch_configuration() -> CudaResult<(u32, u32)> {
-    let module = Module::from_str(PTX)?;
+    let module = Module::from_ptx(PTX, &[])?;
     let kernel_function = module.get_function("generator_kernel")?;
     let sg = kernel_function.suggested_launch_configuration(0, 0.into())?;
     Ok(sg)
 }
 
+static CUST_INIT: OnceCell<()> = OnceCell::new();
+
 impl GraphGenerator for GPUGenerator {
-    fn new() -> anyhow::Result<Self> {
-        let module = Module::from_str(PTX)?;
-        Ok(Self { module })
+    type ConstructArgument = Arc<dyn GPUGeneratorArguments>;
+
+    #[tracing::instrument(skip_all)]
+    fn new(arg: Self::ConstructArgument) -> anyhow::Result<Self> {
+        let module = Module::from_ptx(PTX, &[])?;
+
+        CUST_INIT.get_or_init(|| {
+            info!("CUDA init...");
+            cust::init(cust::CudaFlags::empty()).expect("cuda init failed");
+            ()
+        });
+
+        info!("CUDA device get...");
+        let device = cust::device::Device::get_device(arg.get_device())?;
+
+        info!(
+            "Device: {} ({} MB)",
+            device.name()?,
+            device.total_memory()? / 1_000_000
+        );
+
+        let context = cust::context::Context::new(device)?;
+
+
+        Ok(Self { module, context })
     }
 
     #[instrument(skip_all)]
@@ -114,7 +151,7 @@ impl GraphGenerator for GPUGenerator {
             grid_size, block_size, num_threads
         );
 
-        let mut cpu_state = generator_gpu_kernel::state::cpu::CPUThreadState::new(
+        let mut cpu_state = CPUThreadState::new(
             params.edgebuffer_size,
             num_threads as u64,
         ).context("create_cpu_state")?;
@@ -216,14 +253,5 @@ impl GraphGenerator for GPUGenerator {
         info!("Done generating!");
 
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
     }
 }

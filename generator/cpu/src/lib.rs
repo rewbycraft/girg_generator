@@ -1,7 +1,8 @@
 use crossbeam_channel::{Receiver, Sender};
 use tracing::{debug, info, instrument, warn};
-
+use generator_common::algorithm::generate_edge;
 use generator_common::params::{GenerationParameters, VecSeeds};
+use generator_common::params::ext::GenerationParametersExt;
 
 #[inline]
 pub fn worker_function<F: FnMut(u64, u64)>(
@@ -53,7 +54,7 @@ pub fn worker_function<F: FnMut(u64, u64)>(
                 &p_j_prime
             });
 
-        if generator_common::generate_edge(i, j, w_i, w_j, p_i, p_j, params) {
+        if generate_edge(i, j, w_i, w_j, p_i, p_j, params) {
             cb(i, j)
         }
 
@@ -77,7 +78,9 @@ pub fn worker_function<F: FnMut(u64, u64)>(
 pub struct CPUGenerator {}
 
 impl generator_common::generator::GraphGenerator for CPUGenerator {
-    fn new() -> anyhow::Result<Self> {
+    type ConstructArgument = ();
+
+    fn new(_: Self::ConstructArgument) -> anyhow::Result<Self> {
         Ok(Self {})
     }
 

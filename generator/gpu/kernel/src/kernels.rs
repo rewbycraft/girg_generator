@@ -1,13 +1,13 @@
 use cuda_std::prelude::*;
-
-use generator_common::params::SeedEnum;
-use generator_common::{compute_distance, compute_probability, generate_edge, random, MAX_DIMS};
+use generator_core::algorithm::generate_edge;
+use generator_core::params::{GenerationParameters, RawSeeds};
+use generator_core::MAX_DIMS;
 
 #[kernel]
 #[allow(improper_ctypes_definitions, clippy::missing_safety_doc)]
 pub unsafe fn generator_kernel(
     ts: *mut crate::state::gpu::GPUThreadState,
-    params: &generator_common::params::GenerationParameters<generator_common::params::RawSeeds>,
+    params: &GenerationParameters<RawSeeds>,
     variables: &[f32],
 ) {
     let ts = &mut *ts;

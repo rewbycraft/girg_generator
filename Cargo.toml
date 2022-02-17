@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+    "generator/core",
     "generator/common",
     "generator/cpu",
     "generator/gpu/kernel",

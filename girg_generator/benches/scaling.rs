@@ -1,12 +1,11 @@
 use std::time::Duration;
 
-use criterion::{
-    AxisScale, BenchmarkId, black_box, Criterion, PlotConfiguration, SamplingMode, Throughput,
-};
+use criterion::{AxisScale, BenchmarkId, black_box, Criterion, criterion_group, criterion_main, PlotConfiguration, SamplingMode, Throughput};
 use once_cell::sync::Lazy;
 use anyhow::Context;
+use strum::{EnumIter, IntoEnumIterator};
 
-use crate::{Args, GeneratorMode, pbar, RandomMode, run_app};
+use girg_generator::{Args, GeneratorMode, pbar, RandomMode, run_app};
 
 fn get_suggested_launch_configuration() -> anyhow::Result<(u32, u32)> {
     let _ctx = cust::context::Context::create_and_push(
@@ -66,7 +65,8 @@ fn run(
     run_app(black_box(args), black_box(ctx)).unwrap();
 }
 
-pub enum BenchmarkType {
+#[derive(Debug, EnumIter)]
+enum BenchmarkType {
     SIZE,
     CORE,
     TILE,
@@ -95,9 +95,7 @@ static CUST_DEVICE: Lazy<cust::device::Device> = Lazy::new(|| {
     device
 });
 
-pub fn criterion_benchmark(c: &mut Criterion, mode: GeneratorMode, ty: BenchmarkType) {
-    pbar::setup_logging(Some("error".to_string()));
-
+fn create_criterion_benchmark(c: &mut Criterion, mode: GeneratorMode, ty: BenchmarkType) {
     let dev: Option<cust::device::Device> = if mode == GeneratorMode::GPU {
         Some((*CUST_DEVICE).clone())
     } else {
@@ -218,3 +216,16 @@ pub fn criterion_benchmark(c: &mut Criterion, mode: GeneratorMode, ty: Benchmark
         group.finish();
     }
 }
+
+fn criterion_benchmark(c: &mut Criterion) {
+    pbar::setup_logging(Some("error".to_string()));
+
+    for gen_mode in [GeneratorMode::CPU, GeneratorMode::GPU] {
+        for bench_type in BenchmarkType::iter() {
+            girg_generator::benchmark::criterion_benchmark(c, gen_mode, bench_type);
+        }
+    }
+}
+
+criterion_group!(scaling, criterion_benchmark);
+criterion_main!(scaling);

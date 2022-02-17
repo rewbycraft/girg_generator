@@ -6,6 +6,5 @@
 )]
 #![allow(clippy::missing_safety_doc)]
 
-#[cfg(target_os = "cuda")]
 pub mod kernels;
 pub mod state;

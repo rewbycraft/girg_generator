@@ -2,6 +2,7 @@ use cust::error::CudaResult;
 use cust::memory::*;
 use cust::prelude::*;
 use derivative::Derivative;
+use generator_gpu_kernel::state::gpu::GPUThreadState;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -36,24 +37,20 @@ impl CPUThreadState {
     pub fn new(edges_size: u64, num_threads: u64) -> CudaResult<Self> {
         let mut s = Self {
             current_x: Vec::new(),
-            current_x_d: unsafe { DeviceBuffer::zeroed(num_threads as usize)? },
+            current_x_d: DeviceBuffer::zeroed(num_threads as usize)?,
             current_y: Vec::new(),
-            current_y_d: unsafe { DeviceBuffer::zeroed(num_threads as usize)? },
+            current_y_d: DeviceBuffer::zeroed(num_threads as usize)?,
             edges_s: Vec::new(),
-            edges_s_d: unsafe {
-                DeviceBuffer::zeroed((num_threads as usize) * (edges_size as usize))?
-            },
+            edges_s_d: DeviceBuffer::zeroed((num_threads as usize) * (edges_size as usize))?,
             edges_t: Vec::new(),
-            edges_t_d: unsafe {
-                DeviceBuffer::zeroed((num_threads as usize) * (edges_size as usize))?
-            },
+            edges_t_d: DeviceBuffer::zeroed((num_threads as usize) * (edges_size as usize))?,
             edges_size,
             edges_count: Vec::new(),
-            edges_count_d: unsafe { DeviceBuffer::zeroed(num_threads as usize)? },
+            edges_count_d: DeviceBuffer::zeroed(num_threads as usize)?,
             done: Vec::new(),
-            done_d: unsafe { DeviceBuffer::zeroed(num_threads as usize)? },
+            done_d: DeviceBuffer::zeroed(num_threads as usize)?,
             debug: Vec::new(),
-            debug_d: unsafe { DeviceBuffer::zeroed(10)? },
+            debug_d: DeviceBuffer::zeroed(10)?,
             num_threads,
         };
         s.current_x.resize(num_threads as usize, 0);
@@ -80,6 +77,7 @@ impl CPUThreadState {
         l.zip(r)
     }
 
+    #[allow(dead_code)]
     pub fn copy_to_device(&mut self) -> CudaResult<()> {
         self.current_x_d.copy_from(&self.current_x)?;
         self.current_y_d.copy_from(&self.current_y)?;
@@ -89,7 +87,9 @@ impl CPUThreadState {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn copy_from_device(&mut self) -> CudaResult<()> {
+        //TODO Change these to anyhow::Result and use .context.
         self.current_x_d.copy_to(self.current_x.as_mut_slice())?;
         self.current_y_d.copy_to(self.current_y.as_mut_slice())?;
         self.edges_s_d.copy_to(self.edges_s.as_mut_slice())?;
@@ -129,17 +129,17 @@ impl CPUThreadState {
         Ok(())
     }
 
-    pub fn create_gpu_state(&self) -> CudaResult<DeviceBox<crate::state::gpu::GPUThreadState>> {
-        let s = crate::state::gpu::GPUThreadState {
-            current_x: self.current_x_d.as_device_ptr().as_raw_mut(),
-            current_y: self.current_y_d.as_device_ptr().as_raw_mut(),
-            edges_s: self.edges_s_d.as_device_ptr().as_raw_mut(),
-            edges_t: self.edges_t_d.as_device_ptr().as_raw_mut(),
+    pub fn create_gpu_state(&self) -> CudaResult<DeviceBox<GPUThreadState>> {
+        let s = GPUThreadState {
+            current_x: self.current_x_d.as_device_ptr().as_mut_ptr(),
+            current_y: self.current_y_d.as_device_ptr().as_mut_ptr(),
+            edges_s: self.edges_s_d.as_device_ptr().as_mut_ptr(),
+            edges_t: self.edges_t_d.as_device_ptr().as_mut_ptr(),
             edges_size: self.edges_size,
-            edges_count: self.edges_count_d.as_device_ptr().as_raw_mut(),
-            done: self.done_d.as_device_ptr().as_raw_mut(),
+            edges_count: self.edges_count_d.as_device_ptr().as_mut_ptr(),
+            done: self.done_d.as_device_ptr().as_mut_ptr(),
             num_threads: self.num_threads,
-            debug: self.debug_d.as_device_ptr().as_raw_mut(),
+            debug: self.debug_d.as_device_ptr().as_mut_ptr(),
         };
         DeviceBox::new(&s)
     }

@@ -2,21 +2,16 @@ pub mod murmur3;
 
 #[cfg(target_os = "cuda")]
 use cuda_std::GpuFloat;
-#[cfg(target_os = "cuda")]
 use no_std_compat::prelude::v1::*;
 
 #[derive(Clone, Debug, Copy)]
-#[cfg_attr(not(target_os = "cuda"), derive(cust::DeviceCopy))]
+#[cfg_attr(all(not(target_os = "cuda"), feature = "gpu"), derive(cust::DeviceCopy))]
 pub struct ParetoDistribution {
     pub x: f32,
     pub alpha: f32,
 }
 
-// #[cfg(not(target_os = "cuda"))]
-// unsafe impl cust::memory::DeviceCopy for ParetoDistribution {}
-
 impl ParetoDistribution {
-    #[cfg(not(target_os = "cuda"))]
     pub fn new(x: f32, alpha: f32) -> Self {
         ParetoDistribution { x, alpha }
     }
@@ -40,23 +35,3 @@ pub fn random_edge(i: u64, j: u64, seed: u64) -> f32 {
     v as f32
 }
 
-#[cfg(not(target_os = "cuda"))]
-pub fn generate_seeds(n: usize) -> Vec<u64> {
-    use rand::Rng;
-
-    let mut rng = rand::thread_rng();
-    let mut seeds = vec![];
-    seeds.resize(n, 0);
-
-    for i in 0..n {
-        loop {
-            let r: u64 = rng.gen();
-            if (i == 0) || (!(seeds[0..(i - 1)].contains(&r))) {
-                seeds[i] = r;
-                break;
-            }
-        }
-    }
-
-    seeds
-}

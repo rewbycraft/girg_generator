@@ -6,15 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cust = { version = "0.2" }
-generator_common = { path = "../generator/common" }
-generator_gpu = { path = "../generator/gpu" }
-generator_cpu = { path = "../generator/cpu" }
+generator-common = { path = "../generator/common" }
+generator-gpu = { path = "../generator/gpu", optional = true }
+generator-cpu = { path = "../generator/cpu" }
 crossbeam-channel = "0.5.1"
 tracing = "0.1"
 tracing-subscriber = "0.2.0"
-clap = { version = "3.0.0-rc.4", features = ["derive"] }
-anyhow = { version = "1", features = [ "backtrace" ] }
+clap = { version = "3.0", features = ["derive"] }
+anyhow = { version = "1", features = ["backtrace"] }
+strum = { version = "0.23", features = ["derive"] }
 
 once_cell = "1.9.0"
 indicatif = "0.16.2"
@@ -30,36 +30,12 @@ mur3 = "0.1.0"
 rstest = "0.12.0"
 
 [features]
+default = ["gpu"]
 
-benchmark = [ "num_cpus", "criterion" ]
-gpu = []
+benchmark = ["num_cpus", "criterion"]
+gpu = [ "generator-gpu" ]
 
 [[bench]]
-name = "cpu_core_scaling"
+name = "scaling"
 harness = false
 required-features = ["benchmark"]
-
-[[bench]]
-name = "gpu_core_scaling"
-harness = false
-required-features = ["benchmark", "gpu"]
-
-[[bench]]
-name = "cpu_size_scaling"
-harness = false
-required-features = ["benchmark"]
-
-[[bench]]
-name = "gpu_size_scaling"
-harness = false
-required-features = ["benchmark", "gpu"]
-
-[[bench]]
-name = "cpu_tile_scaling"
-harness = false
-required-features = ["benchmark"]
-
-[[bench]]
-name = "gpu_tile_scaling"
-harness = false
-required-features = ["benchmark", "gpu"]
