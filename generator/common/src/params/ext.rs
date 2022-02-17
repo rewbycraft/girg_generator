@@ -1,7 +1,7 @@
-use generator_core::params::{GenerationParameters, SeedEnum};
 use crate::algorithm::generate_parameters;
 use crate::params::VecSeeds;
 use crate::random;
+use generator_core::params::{GenerationParameters, SeedEnum};
 
 pub trait GenerationParametersExt {
     fn compute_weights(&self) -> Vec<f32>;
@@ -70,9 +70,11 @@ impl GenerationParametersExt for GenerationParameters<VecSeeds> {
     }
 
     fn tiles(&self) -> Box<dyn Iterator<Item = crate::tiles::Tile>> {
-        Box::new(crate::tiles::TilesIterator::new(self.v, self.tile_size)
-            .skip(self.shard_index)
-            .step_by(self.shard_count))
+        Box::new(
+            crate::tiles::TilesIterator::new(self.v, self.tile_size)
+                .skip(self.shard_index)
+                .step_by(self.shard_count),
+        )
     }
 
     fn num_tiles(&self) -> u64 {

@@ -1,4 +1,8 @@
-#![cfg_attr(target_os = "cuda", feature(register_attr), register_attr(nvvm_internal))]
+#![cfg_attr(
+    target_os = "cuda",
+    feature(register_attr),
+    register_attr(nvvm_internal)
+)]
 #![no_std]
 #![allow(clippy::missing_safety_doc)]
 

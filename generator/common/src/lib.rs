@@ -1,8 +1,8 @@
+pub mod algorithm;
 pub mod generator;
+pub mod params;
+pub mod random;
 pub mod threads;
 pub mod tiles;
-pub mod random;
-pub mod params;
-pub mod algorithm;
 
 pub use generator_core::MAX_DIMS;

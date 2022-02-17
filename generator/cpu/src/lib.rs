@@ -1,8 +1,8 @@
 use crossbeam_channel::{Receiver, Sender};
-use tracing::{debug, info, instrument, warn};
 use generator_common::algorithm::generate_edge;
-use generator_common::params::{GenerationParameters, VecSeeds};
 use generator_common::params::ext::GenerationParametersExt;
+use generator_common::params::{GenerationParameters, VecSeeds};
+use tracing::{debug, info, instrument, warn};
 
 #[inline]
 pub fn worker_function<F: FnMut(u64, u64)>(

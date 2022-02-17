@@ -1,7 +1,7 @@
-use crossbeam_channel::{Receiver, Sender};
-use generator_core::params::GenerationParameters;
 use crate::params::VecSeeds;
 use crate::tiles::Tile;
+use crossbeam_channel::{Receiver, Sender};
+use generator_core::params::GenerationParameters;
 
 pub type EdgeSender = Sender<Vec<(u64, u64)>>;
 

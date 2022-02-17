@@ -21,9 +21,7 @@ pub struct RawSeeds {
 
 impl RawSeeds {
     pub fn new(seeds: *const u64) -> Self {
-        RawSeeds {
-            seeds,
-        }
+        RawSeeds { seeds }
     }
 }
 
@@ -43,7 +41,10 @@ impl SeedGettable for RawSeeds {
 }
 
 #[derive(Copy, Clone, Debug)]
-#[cfg_attr(all(not(target_os = "cuda"), feature = "gpu"), derive(cust::DeviceCopy))]
+#[cfg_attr(
+    all(not(target_os = "cuda"), feature = "gpu"),
+    derive(cust::DeviceCopy)
+)]
 pub struct GenerationParameters<S: SeedGettable + Sized> {
     pub seeds: S,
     pub pregenerate_numbers: bool,

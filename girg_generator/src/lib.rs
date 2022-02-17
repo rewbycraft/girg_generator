@@ -1,14 +1,14 @@
 use std::fs::File;
 use std::io::prelude::*;
 
-use tracing::{debug, info};
 use generator_common::params::ext::GenerationParametersExt;
+use tracing::{debug, info};
 
-use crate::parquet_edges::ParquetEdgeWriter;
 use crate::args::{ArgsRef, GeneratorMode};
+use crate::parquet_edges::ParquetEdgeWriter;
 
-pub mod parquet_edges;
 pub mod args;
+pub mod parquet_edges;
 pub mod pbar;
 #[cfg(test)]
 pub mod tests;
@@ -62,7 +62,7 @@ pub fn run_app(app: ArgsRef) -> anyhow::Result<()> {
                 tile_receiver,
                 &params,
             )
-        },
+        }
         GeneratorMode::CPU => {
             generator_common::threads::start_workers::<generator_cpu::CPUGenerator>(
                 (),
@@ -72,7 +72,7 @@ pub fn run_app(app: ArgsRef) -> anyhow::Result<()> {
                 tile_receiver,
                 &params,
             )
-        },
+        }
     };
     handles.push(generator_common::threads::start_generate_tiles_thread(
         tile_sender,
@@ -100,7 +100,10 @@ pub fn run_app(app: ArgsRef) -> anyhow::Result<()> {
             wtr
         });
 
-        let mut parquet_wtr = app.output_edges_parquet.as_ref().map(ParquetEdgeWriter::new);
+        let mut parquet_wtr = app
+            .output_edges_parquet
+            .as_ref()
+            .map(ParquetEdgeWriter::new);
 
         for edge_tile in edge_receiver {
             if let Some(wtr) = parquet_wtr.as_mut() {

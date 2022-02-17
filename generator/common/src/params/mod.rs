@@ -17,4 +17,3 @@ impl SeedGettable for VecSeeds {
         self.seeds[i]
     }
 }
-

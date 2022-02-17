@@ -1,11 +1,11 @@
 use crate::generator::{EdgeSender, GraphGenerator};
+use crate::params::ext::GenerationParametersExt;
 use crate::params::VecSeeds;
-use generator_core::params::GenerationParameters;
+use crate::tiles::Tile;
 use crossbeam_channel::{Receiver, Sender};
+use generator_core::params::GenerationParameters;
 use std::thread::JoinHandle;
 use tracing::{info, instrument};
-use crate::params::ext::GenerationParametersExt;
-use crate::tiles::Tile;
 
 pub fn start_generate_tiles_thread(
     sender: Sender<Tile>,
@@ -15,10 +15,7 @@ pub fn start_generate_tiles_thread(
     std::thread::spawn(move || generate_tiles(sender, &params))
 }
 
-pub fn generate_tiles(
-    sender: Sender<Tile>,
-    params: &GenerationParameters<VecSeeds>,
-) {
+pub fn generate_tiles(sender: Sender<Tile>, params: &GenerationParameters<VecSeeds>) {
     info!("Emitting tiles...");
 
     for tile in params.tiles() {

@@ -1,10 +1,10 @@
+use clap::{ArgEnum, Parser, ValueHint};
+use generator_common::params::ext::GenerationParametersExt;
+use generator_common::params::{GenerationParameters, VecSeeds};
+use generator_common::random::ParetoDistribution;
 use std::path::PathBuf;
 use std::sync::Arc;
-use clap::{ArgEnum, Parser, ValueHint};
 use strum::EnumIter;
-use generator_common::params::{GenerationParameters, VecSeeds};
-use generator_common::params::ext::GenerationParametersExt;
-use generator_common::random::ParetoDistribution;
 
 pub type ArgsRef = Arc<Args>;
 

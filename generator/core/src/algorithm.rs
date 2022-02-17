@@ -3,9 +3,9 @@
 #[allow(unused_imports)]
 use cuda_std::GpuFloat;
 
-use no_std_compat::cmp::Ordering::Equal;
 use crate::params::{GenerationParameters, SeedEnum, SeedGettable};
 use crate::random;
+use no_std_compat::cmp::Ordering::Equal;
 
 pub fn compute_distance(p_i: &[f32], p_j: &[f32]) -> f32 {
     fn dist_c(i: f32, j: f32) -> f32 {
@@ -38,7 +38,7 @@ pub fn compute_probability<S: SeedGettable>(
                 // 1/dist^(ad)
                 / (d.powf(params.alpha * params.num_dimensions() as f32))
         )
-            .min(1.0f32)
+        .min(1.0f32)
     }
 }
 

@@ -1,6 +1,6 @@
-use tracing::info;
-use girg_generator::{pbar, run_app};
 use girg_generator::args::Args;
+use girg_generator::{pbar, run_app};
+use tracing::info;
 
 fn main() -> anyhow::Result<()> {
     let app = Args::new_ref();

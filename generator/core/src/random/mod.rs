@@ -5,7 +5,10 @@ use cuda_std::GpuFloat;
 use no_std_compat::prelude::v1::*;
 
 #[derive(Clone, Debug, Copy)]
-#[cfg_attr(all(not(target_os = "cuda"), feature = "gpu"), derive(cust::DeviceCopy))]
+#[cfg_attr(
+    all(not(target_os = "cuda"), feature = "gpu"),
+    derive(cust::DeviceCopy)
+)]
 pub struct ParetoDistribution {
     pub x: f32,
     pub alpha: f32,
@@ -34,4 +37,3 @@ pub fn random_edge(i: u64, j: u64, seed: u64) -> f32 {
     let v = h / (u32::MAX as f64);
     v as f32
 }
-

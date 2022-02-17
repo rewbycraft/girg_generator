@@ -1,19 +1,23 @@
 use std::time::Duration;
 
-use criterion::{AxisScale, BenchmarkId, black_box, Criterion, criterion_group, criterion_main, PlotConfiguration, SamplingMode, Throughput};
-use once_cell::sync::Lazy;
 use anyhow::Context;
+use criterion::{
+    black_box, criterion_group, criterion_main, AxisScale, BenchmarkId, Criterion,
+    PlotConfiguration, SamplingMode, Throughput,
+};
+use once_cell::sync::Lazy;
 use strum::{EnumIter, IntoEnumIterator};
 
-use girg_generator::{Args, GeneratorMode, pbar, RandomMode, run_app};
+use girg_generator::{pbar, run_app, Args, GeneratorMode, RandomMode};
 
 fn get_suggested_launch_configuration() -> anyhow::Result<(u32, u32)> {
     let _ctx = cust::context::Context::create_and_push(
         cust::context::ContextFlags::MAP_HOST | cust::context::ContextFlags::SCHED_AUTO,
         (*CUST_DEVICE).clone(),
     )
-        .context("create cuda context");
-    let result = generator_gpu::suggested_launch_configuration().context("get_suggested_launch_config")?;
+    .context("create cuda context");
+    let result =
+        generator_gpu::suggested_launch_configuration().context("get_suggested_launch_config")?;
     Ok(result)
 }
 
@@ -31,7 +35,7 @@ fn run(
             cust::context::ContextFlags::MAP_HOST | cust::context::ContextFlags::SCHED_AUTO,
             device,
         )
-            .expect("create cuda context")
+        .expect("create cuda context")
     });
 
     let args = Args {
@@ -149,7 +153,9 @@ fn create_criterion_benchmark(c: &mut Criterion, mode: GeneratorMode, ty: Benchm
                         BenchmarkId::from_parameter(&vertices),
                         &vertices,
                         |b, &vertices| {
-                            b.iter(|| run(mode, num_workers, 1000, vertices, pregen, dev.clone(), None));
+                            b.iter(|| {
+                                run(mode, num_workers, 1000, vertices, pregen, dev.clone(), None)
+                            });
                         },
                     );
                 }
@@ -170,16 +176,27 @@ fn create_criterion_benchmark(c: &mut Criterion, mode: GeneratorMode, ty: Benchm
                     }
                 }
                 GeneratorMode::GPU => {
-                    let (grid_size, block_size) = get_suggested_launch_configuration().expect("get_suggested_launch_configuration");
+                    let (grid_size, block_size) = get_suggested_launch_configuration()
+                        .expect("get_suggested_launch_configuration");
                     let max_val = (grid_size + (grid_size / 2)) / 2;
                     for blocks in (1..=max_val).map(|e| e * 2) {
-                        group.throughput(Throughput::Elements((blocks as u64) * (block_size as u64)));
+                        group.throughput(Throughput::Elements(
+                            (blocks as u64) * (block_size as u64),
+                        ));
                         group.bench_with_input(
                             BenchmarkId::from_parameter(&blocks),
                             &blocks,
                             |b, &blocks| {
                                 b.iter(|| {
-                                    run(mode, GPU_THREADS, 1000, 500_000, pregen, dev.clone(), Some(blocks))
+                                    run(
+                                        mode,
+                                        GPU_THREADS,
+                                        1000,
+                                        500_000,
+                                        pregen,
+                                        dev.clone(),
+                                        Some(blocks),
+                                    )
                                 });
                             },
                         );
@@ -207,11 +224,21 @@ fn create_criterion_benchmark(c: &mut Criterion, mode: GeneratorMode, ty: Benchm
                         BenchmarkId::from_parameter(&tile_size),
                         &tile_size,
                         |b, &tile_size| {
-                            b.iter(|| run(mode, num_workers, tile_size, vertices, pregen, dev.clone(), None));
+                            b.iter(|| {
+                                run(
+                                    mode,
+                                    num_workers,
+                                    tile_size,
+                                    vertices,
+                                    pregen,
+                                    dev.clone(),
+                                    None,
+                                )
+                            });
                         },
                     );
                 }
-            },
+            }
         }
         group.finish();
     }

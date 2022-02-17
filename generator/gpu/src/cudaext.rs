@@ -5,12 +5,21 @@ use cust::stream::Stream;
 use generator_common::params::{GenerationParameters, RawSeeds, VecSeeds};
 
 pub trait GenerationParametersCudaExt {
-    unsafe fn as_rawseeds_async(&self, stream: &Stream) -> anyhow::Result<(GenerationParameters<RawSeeds>, DeviceBuffer<u64>)>;
+    unsafe fn as_rawseeds_async(
+        &self,
+        stream: &Stream,
+    ) -> anyhow::Result<(GenerationParameters<RawSeeds>, DeviceBuffer<u64>)>;
 }
 
 impl GenerationParametersCudaExt for GenerationParameters<VecSeeds> {
-    unsafe fn as_rawseeds_async(&self, stream: &Stream) -> anyhow::Result<(GenerationParameters<RawSeeds>, DeviceBuffer<u64>)> {
-        let buffer = self.seeds.get_dbuffer_async(stream).context("get_dbuffer_async")?;
+    unsafe fn as_rawseeds_async(
+        &self,
+        stream: &Stream,
+    ) -> anyhow::Result<(GenerationParameters<RawSeeds>, DeviceBuffer<u64>)> {
+        let buffer = self
+            .seeds
+            .get_dbuffer_async(stream)
+            .context("get_dbuffer_async")?;
         let params = GenerationParameters {
             seeds: RawSeeds::new(buffer.as_device_ptr().as_ptr()),
             pregenerate_numbers: self.pregenerate_numbers,
