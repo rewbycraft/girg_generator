@@ -1,3 +1,6 @@
+#![warn(missing_docs)]
+#![warn(clippy::missing_docs_in_private_items)]
+
 use crossbeam_channel::{Receiver, Sender};
 use generator_common::algorithm::generate_edge;
 use generator_common::params::ext::GenerationParametersExt;

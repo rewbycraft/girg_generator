@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+generator-core = { path = "../generator/core" }
 generator-common = { path = "../generator/common" }
 generator-gpu = { path = "../generator/gpu", optional = true }
 generator-cpu = { path = "../generator/cpu" }
@@ -24,6 +25,7 @@ parquet = "6.5.0"
 
 num_cpus = { version = "1.13.1", optional = true }
 criterion = { version = "0.3", optional = true }
+
 
 [dev-dependencies]
 mur3 = "0.1.0"

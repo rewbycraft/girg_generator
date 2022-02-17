@@ -1,3 +1,6 @@
+#![warn(missing_docs)]
+#![warn(clippy::missing_docs_in_private_items)]
+
 use anyhow::Context;
 use crossbeam_channel::{Receiver, Sender};
 use cust::error::CudaResult;

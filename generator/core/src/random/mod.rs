@@ -1,3 +1,5 @@
+//! Hash-based psuedo-random number generation
+
 pub mod murmur3;
 
 #[cfg(target_os = "cuda")]
@@ -10,7 +12,9 @@ use no_std_compat::prelude::v1::*;
     derive(cust::DeviceCopy)
 )]
 pub struct ParetoDistribution {
+    /// x_min
     pub x: f32,
+    /// alpha value of the distribution
     pub alpha: f32,
 }
 

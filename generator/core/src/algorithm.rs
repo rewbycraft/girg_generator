@@ -1,3 +1,5 @@
+//! The probability function module.
+
 //This import isn't actually unused, the compiler just gets confused.
 //It's needed for float intrinsics.
 #[allow(unused_imports)]
@@ -7,6 +9,9 @@ use crate::params::{GenerationParameters, SeedEnum, SeedGettable};
 use crate::random;
 use no_std_compat::cmp::Ordering::Equal;
 
+/// Computes the distance between two positions of an d-dimensional torus.
+///
+/// This function assumes the length of the slices is equal to the number of dimensions and that both slices are of equal length.
 pub fn compute_distance(p_i: &[f32], p_j: &[f32]) -> f32 {
     fn dist_c(i: f32, j: f32) -> f32 {
         (i - j).abs().min(1.0f32 - ((i - j).abs()))
@@ -18,7 +23,15 @@ pub fn compute_distance(p_i: &[f32], p_j: &[f32]) -> f32 {
         .unwrap()
 }
 
+/// Actual probability function.
+///
+/// # Arguments
+/// * `d` - Distance between nodes i and j.
+/// * `w_i` - Weight of node i.
+/// * `w_j` - Weight of node j.
+/// * `params` - Reference to the parameters for the graph being generated. See [GenerationParameters].
 pub fn compute_probability<S: SeedGettable>(
+    // Distance between nodes i and j.
     d: f32,
     w_i: f32,
     w_j: f32,
@@ -42,12 +55,16 @@ pub fn compute_probability<S: SeedGettable>(
     }
 }
 
-//32 bit float epsilon on NVidia GPUs
-//See <cuda root>/targets/x86_64-linux/include/CL/cl_platform.h line 192
-//const EPS: f32 = 1.1920928955078125e-7;
-//const EPS: f32 = 9.765625e-04;
-//const EPS: f32 = 2.384185791015625e-07;
-
+/// Function that determines whether an edge exists.
+///
+/// # Arguments
+/// * `i` - Left node index.
+/// * `j` - Right node index.
+/// * `w_i` - Weight of node i.
+/// * `w_j` - Weight of node j.
+/// * `p_i` - Position of node i.
+/// * `p_j` - Position of node j.
+/// * `params` - Reference to the parameters for the graph being generated. See [GenerationParameters].
 pub fn generate_edge<S: SeedGettable>(
     i: u64,
     j: u64,
@@ -62,14 +79,4 @@ pub fn generate_edge<S: SeedGettable>(
     let rp = random::random_edge(i, j, params.get_seed(SeedEnum::Edge));
 
     p > rp
-
-    //Compute goal: p > rp
-
-    //Since nvidia GPUs have an epsilon much larger than the one of the x86_64 cpu,
-    // we need to compare the difference to that epsilon.
-    //On the GPU this is effectively saying p is at least one representable number away from rp.
-    //In other words, p > rp.
-    //On the CPU we simulate the effect of the larger epsilon in order to get the exact same numbers.
-    // let diff = p - rp;
-    // diff > EPS
 }

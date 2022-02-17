@@ -1,3 +1,22 @@
+//! This is the main application crate.
+//!
+//! Here lives the code that ties the whole application together and acts as a coordinator of all the different subcomponents.
+//!
+//! The [generator/core](generator_core) crate provides the core of the generation logic.
+//! It contains the main probability function as well as the struct that holds the parameters for it.
+//! This crate is used both on the CPU and on the GPU directly. As such, it is kept minimal and is a `no_std` crate.
+//! Generally this is where you should look to implement new probability functions.
+//!
+//! The [generator/common](generator_common) crate then extends [generator/core](generator_core) with common behaviour.
+//! Amongst this behaviour is a [function](generator_common::algorithm::generate_parameters) one can amend to pre-calculate properties like the sum of all weights.
+//!
+//! The [generator/cpu](generator_cpu) and [generator/gpu](generator_gpu) crates provide two implementations of the GIRG generator.
+//!
+//!
+
+#![warn(missing_docs)]
+#![warn(clippy::missing_docs_in_private_items)]
+
 use std::fs::File;
 use std::io::prelude::*;
 
@@ -13,6 +32,9 @@ pub mod pbar;
 #[cfg(test)]
 pub mod tests;
 
+/// Main function of the application.
+///
+/// This functions is the main entrypoint for the application after the arguments have been parsed and logging has been initialized.
 pub fn run_app(app: ArgsRef) -> anyhow::Result<()> {
     info!("Get params...");
     let params = app.get_params();

@@ -1,3 +1,7 @@
+//! This module holds the parameters of the graph being generated.
+//!
+//! See [GenerationParameters] for the explanation of how this is structured.
+
 use no_std_compat::ops::Div;
 use no_std_compat::prelude::v1::*;
 
@@ -45,6 +49,19 @@ impl SeedGettable for RawSeeds {
     all(not(target_os = "cuda"), feature = "gpu"),
     derive(cust::DeviceCopy)
 )]
+/// This struct holds the main parameters for the graph being generated.
+///
+/// An important requirement for this struct is that it is [Copy]-able.
+/// This is needed because the [GPU generator](generator_gpu) needs to be able to copy this into the GPU VRAM.
+///
+/// # Why are the seeds a generic type argument?
+///
+/// The GPU generator imposes an interesting challenge.
+/// Since the number of dimensions is not known until run-time, the number of seeds is not either.
+/// As such, a [Vec<u64>] is used to hold the seeds on the CPU side of the program.
+///
+/// But we cannot just copy such a [Vec<u64>] to the GPU.
+/// Instead the data must be uploaded separately and a raw pointer (`*const u64`) must be stored for
 pub struct GenerationParameters<S: SeedGettable + Sized> {
     pub seeds: S,
     pub pregenerate_numbers: bool,
