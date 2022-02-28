@@ -3,15 +3,14 @@
 
 use crossbeam_channel::{Receiver, Sender};
 use generator_common::algorithm::generate_edge;
-use generator_common::params::ext::GenerationParametersExt;
-use generator_common::params::{GenerationParameters, VecSeeds};
 use tracing::{debug, info, instrument, warn};
+use generator_common::params::CPUGenerationParameters;
 
 #[inline]
 pub fn worker_function<F: FnMut(u64, u64)>(
     start: (u64, u64),
     end: (u64, u64),
-    params: &GenerationParameters<VecSeeds>,
+    params: &CPUGenerationParameters,
     mut cb: F,
 ) {
     let mut i = start.0;
@@ -93,7 +92,7 @@ impl generator_common::generator::GraphGenerator for CPUGenerator {
         sender: Sender<Vec<(u64, u64)>>,
         finisher: Sender<((u64, u64), (u64, u64))>,
         receiver: Receiver<((u64, u64), (u64, u64))>,
-        params: &GenerationParameters<VecSeeds>,
+        params: &CPUGenerationParameters,
     ) -> anyhow::Result<()> {
         info!("Running!");
         for (start, end) in receiver {
@@ -111,7 +110,7 @@ pub fn worker(
     sender: Sender<Vec<(u64, u64)>>,
     start: (u64, u64),
     end: (u64, u64),
-    params: &GenerationParameters<VecSeeds>,
+    params: &CPUGenerationParameters,
 ) {
     let mut pair_queue = Vec::new();
     pair_queue.resize(params.edgebuffer_size as usize, (0, 0));
@@ -148,11 +147,3 @@ pub fn worker(
     info!("Job done!");
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
-    }
-}

@@ -10,6 +10,7 @@ gpu = [ "generator-core/gpu" ]
 
 [dependencies]
 generator-core = { path = "../core" }
+fixed-size-buffer = { path = "../../fixed-size-buffer" }
 num-integer = { version = "0.1.44", default-features = false }
 rand = "0.8.4"
 tracing = "0.1"

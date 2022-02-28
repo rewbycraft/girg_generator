@@ -15,7 +15,6 @@
 pub mod algorithm;
 pub mod params;
 pub mod random;
-pub mod memory;
 
 /// This tells you how many dimensions you can have at maximum when doing GPU computing using on-demand randomness.
 pub const MAX_DIMS: usize = 2;

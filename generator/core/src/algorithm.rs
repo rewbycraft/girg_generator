@@ -5,7 +5,7 @@
 #[allow(unused_imports)]
 use cuda_std::GpuFloat;
 
-use crate::params::{GenerationParameters, SeedEnum, SeedGettable};
+use crate::params::{GenerationParameters, SeedEnum};
 use crate::random;
 use no_std_compat::cmp::Ordering::Equal;
 
@@ -30,12 +30,12 @@ pub fn compute_distance(p_i: &[f32], p_j: &[f32]) -> f32 {
 /// * `w_i` - Weight of node i.
 /// * `w_j` - Weight of node j.
 /// * `params` - Reference to the parameters for the graph being generated. See [GenerationParameters].
-pub fn compute_probability<S: SeedGettable>(
+pub fn compute_probability(
     // Distance between nodes i and j.
     d: f32,
     w_i: f32,
     w_j: f32,
-    params: &GenerationParameters<S>,
+    params: &GenerationParameters,
 ) -> f32 {
     if params.alpha.is_infinite() {
         let v = ((w_i * w_j) / params.w).powf(1.0f32 / params.num_dimensions() as f32);
@@ -65,18 +65,18 @@ pub fn compute_probability<S: SeedGettable>(
 /// * `p_i` - Position of node i.
 /// * `p_j` - Position of node j.
 /// * `params` - Reference to the parameters for the graph being generated. See [GenerationParameters].
-pub fn generate_edge<S: SeedGettable>(
+pub fn generate_edge(
     i: u64,
     j: u64,
     w_i: f32,
     w_j: f32,
     p_i: &[f32],
     p_j: &[f32],
-    params: &GenerationParameters<S>,
+    params: &GenerationParameters,
 ) -> bool {
     let d = compute_distance(p_i, p_j);
     let p = compute_probability(d, w_i, w_j, params);
-    let rp = random::random_edge(i, j, params.get_seed(SeedEnum::Edge));
+    let rp = params.edge_random(i, j);
 
     p > rp
 }

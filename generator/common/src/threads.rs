@@ -1,21 +1,19 @@
 use crate::generator::{EdgeSender, GraphGenerator};
-use crate::params::ext::GenerationParametersExt;
-use crate::params::VecSeeds;
 use crate::tiles::Tile;
 use crossbeam_channel::{Receiver, Sender};
-use generator_core::params::GenerationParameters;
 use std::thread::JoinHandle;
 use tracing::{info, instrument};
+use crate::params::CPUGenerationParameters;
 
 pub fn start_generate_tiles_thread(
     sender: Sender<Tile>,
-    params: &GenerationParameters<VecSeeds>,
+    params: &CPUGenerationParameters,
 ) -> JoinHandle<()> {
     let params = params.clone();
     std::thread::spawn(move || generate_tiles(sender, &params))
 }
 
-pub fn generate_tiles(sender: Sender<Tile>, params: &GenerationParameters<VecSeeds>) {
+pub fn generate_tiles(sender: Sender<Tile>, params: &CPUGenerationParameters) {
     info!("Emitting tiles...");
 
     for tile in params.tiles() {
@@ -31,7 +29,7 @@ pub fn start_workers<T: GraphGenerator>(
     sender: EdgeSender,
     finisher: Sender<Tile>,
     receiver: Receiver<Tile>,
-    params: &GenerationParameters<VecSeeds>,
+    params: &CPUGenerationParameters,
 ) -> Vec<JoinHandle<()>> {
     let mut handles = Vec::new();
 
@@ -60,7 +58,7 @@ pub fn worker_thread<T: GraphGenerator>(
     sender: EdgeSender,
     finisher: Sender<Tile>,
     receiver: Receiver<Tile>,
-    params: &GenerationParameters<VecSeeds>,
+    params: &CPUGenerationParameters,
 ) {
     info!("Running!");
     let generator = T::new(construct_arg).unwrap();

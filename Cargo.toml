@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+    "fixed-size-buffer",
     "generator/core",
     "generator/common",
     "generator/cpu",

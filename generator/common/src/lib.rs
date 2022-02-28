@@ -7,6 +7,5 @@ pub mod params;
 pub mod random;
 pub mod threads;
 pub mod tiles;
-pub mod memory;
 
 pub use generator_core::MAX_DIMS;

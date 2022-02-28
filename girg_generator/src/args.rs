@@ -1,6 +1,5 @@
 use clap::{ArgEnum, Parser, ValueHint};
-use generator_common::params::ext::GenerationParametersExt;
-use generator_common::params::{GenerationParameters, VecSeeds};
+use generator_common::params::{CPUGenerationParameters, GenerationParameters};
 use generator_common::random::ParetoDistribution;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -101,9 +100,9 @@ impl Args {
         ParetoDistribution::new(self.x_min, self.beta)
     }
 
-    pub fn get_params(&self) -> GenerationParameters<VecSeeds> {
+    pub fn get_params(&self) -> CPUGenerationParameters {
         match self.seeds.as_ref() {
-            None => GenerationParameters::new(
+            None => CPUGenerationParameters::new(
                 self.dimensions,
                 self.get_pareto(),
                 self.alpha,
@@ -115,7 +114,7 @@ impl Args {
                 self.shard_index,
                 self.shard_count,
             ),
-            Some(s) => GenerationParameters::from_seeds(
+            Some(s) => CPUGenerationParameters::from_seeds(
                 self.dimensions,
                 self.get_pareto(),
                 self.alpha,

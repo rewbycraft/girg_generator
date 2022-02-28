@@ -4,6 +4,7 @@
 
 use no_std_compat::ops::Div;
 use no_std_compat::prelude::v1::*;
+use fixed_size_buffer::FixedSizeBufferRef;
 
 use super::random;
 
@@ -14,33 +15,13 @@ pub enum SeedEnum {
     Dimension(usize),
 }
 
-pub trait SeedGettable: Sized {
-    fn get_seed(&self, s: SeedEnum) -> u64;
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct RawSeeds {
-    seeds: *const u64,
-}
-
-impl RawSeeds {
-    pub fn new(seeds: *const u64) -> Self {
-        RawSeeds { seeds }
-    }
-}
-
-#[cfg(all(not(target_os = "cuda"), feature = "gpu"))]
-unsafe impl cust::memory::DeviceCopy for RawSeeds {}
-
-impl SeedGettable for RawSeeds {
-    fn get_seed(&self, s: SeedEnum) -> u64 {
-        let i = match s {
+impl SeedEnum {
+    fn seed_index(&self) -> usize {
+        match self {
             SeedEnum::Weight => 0,
             SeedEnum::Edge => 1,
-            SeedEnum::Dimension(i) => 2 + i,
-        };
-        //TODO: Add safety checks.
-        unsafe { *self.seeds.add(i as usize) }
+            SeedEnum::Dimension(i) => 2 + *i,
+        }
     }
 }
 
@@ -62,8 +43,8 @@ impl SeedGettable for RawSeeds {
 ///
 /// But we cannot just copy such a [Vec<u64>] to the GPU.
 /// Instead the data must be uploaded separately and a raw pointer (`*const u64`) must be stored for
-pub struct GenerationParameters<S: SeedGettable + Sized> {
-    pub seeds: S,
+pub struct GenerationParameters<'a> {
+    pub seeds: FixedSizeBufferRef<'a, u64>,
     pub pregenerate_numbers: bool,
     pub gpu_blocks: u32,
     pub dims: usize,
@@ -77,13 +58,30 @@ pub struct GenerationParameters<S: SeedGettable + Sized> {
     pub shard_count: usize,
 }
 
-impl<S: SeedGettable + Sized> GenerationParameters<S> {
+impl<'a> GenerationParameters<'a> {
+    pub fn replace_seeds<'b>(self, seeds: FixedSizeBufferRef<'b, u64>) -> GenerationParameters<'b> {
+        GenerationParameters {
+            seeds,
+            pregenerate_numbers: self.pregenerate_numbers,
+            gpu_blocks: self.gpu_blocks,
+            dims: self.dims,
+            pareto: self.pareto,
+            alpha: self.alpha,
+            w: self.w,
+            v: self.v,
+            tile_size: self.tile_size,
+            edgebuffer_size: self.edgebuffer_size,
+            shard_index: self.shard_index,
+            shard_count: self.shard_count,
+        }
+    }
+
     pub fn num_dimensions(&self) -> usize {
         self.dims
     }
 
     pub fn get_seed(&self, s: SeedEnum) -> u64 {
-        self.seeds.get_seed(s)
+        self.seeds[s.seed_index()]
     }
 
     pub fn compute_weight(&self, j: u64) -> f32 {
@@ -92,6 +90,10 @@ impl<S: SeedGettable + Sized> GenerationParameters<S> {
 
     pub fn compute_property(&self, j: u64, p: SeedEnum) -> f32 {
         random::random_property(j, self.get_seed(p))
+    }
+
+    pub fn edge_random(&self, i: u64, j: u64) -> f32 {
+        random::random_edge(i, j, self.get_seed(SeedEnum::Edge))
     }
 
     pub fn fill_dims(&self, j: u64, p: &mut [f32]) {

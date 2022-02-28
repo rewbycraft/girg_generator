@@ -20,7 +20,6 @@
 use std::fs::File;
 use std::io::prelude::*;
 
-use generator_common::params::ext::GenerationParametersExt;
 use tracing::{debug, info};
 
 use crate::args::{ArgsRef, GeneratorMode};

@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 cust = { version = "0.3" }
 generator-common = { path = "../common", features = ["gpu"] }
+fixed-size-buffer = { path = "../../fixed-size-buffer", features = ["gpu"] }
 generator-gpu-kernel = { path = "kernel" }
 crossbeam-channel = "0.5.1"
 derivative = "2.2.0"

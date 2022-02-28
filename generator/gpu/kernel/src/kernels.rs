@@ -1,13 +1,13 @@
 use cuda_std::prelude::*;
 use generator_core::algorithm::generate_edge;
-use generator_core::params::{GenerationParameters, RawSeeds};
+use generator_core::params::GenerationParameters;
 use generator_core::MAX_DIMS;
 
 #[kernel]
 #[allow(improper_ctypes_definitions, clippy::missing_safety_doc)]
 pub unsafe fn generator_kernel(
     ts: *mut crate::state::gpu::GPUThreadState,
-    params: &GenerationParameters<RawSeeds>,
+    params: GenerationParameters,
     variables: &[f32],
 ) {
     let ts = &mut *ts;
@@ -54,7 +54,7 @@ pub unsafe fn generator_kernel(
             &p_j_prime[0..params.num_dimensions()]
         };
 
-        if generate_edge(i, j, w(i), w(j), ps_i, ps_j, params) {
+        if generate_edge(i, j, w(i), w(j), ps_i, ps_j, &params) {
             if !ts.can_add_edge() {
                 // No more space in buffer, abort!
                 ts.set_done(false);

@@ -1,5 +1,5 @@
 [package]
-name = "generator-core"
+name = "fixed-size-buffer"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,18 +8,14 @@ edition = "2021"
 [dependencies]
 cuda_std = { version = "0.2" }
 no-std-compat = "0.4"
-fixed-size-buffer = { path = "../../fixed-size-buffer", default-features = false }
 
 [features]
-gpu = ["cust", "fixed-size-buffer/gpu"]
+default = [ "cpu" ]
+
+std = []
+gpu = ["cust", "std"]
+cpu = ["std"]
 
 # For cust::DeviceCopy
 [target.'cfg(not(target_os = "cuda"))'.dependencies]
 cust = {version = "0.3", optional = true}
-
-# Testing libs for murmur3
-[target.'cfg(not(target_os = "cuda"))'.dev-dependencies]
-rstest = "0.12"
-mur3 = "0.1"
-rand_xoshiro = "0.6"
-rand = "0.8.4"

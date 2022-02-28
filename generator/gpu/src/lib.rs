@@ -11,11 +11,11 @@ use generator_common::MAX_DIMS;
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
 use tracing::{debug, info, instrument, warn};
+use generator_common::params::CPUGenerationParameters;
+use std::ops::Deref;
 
 use crate::cudaext::GenerationParametersCudaExt;
 use crate::state::cpu::CPUThreadState;
-use generator_common::params::ext::GenerationParametersExt;
-use generator_common::params::{GenerationParameters, VecSeeds};
 
 mod cudaext;
 mod state;
@@ -39,7 +39,7 @@ impl GPUGenerator {
         grid_size: u32,
         block_size: u32,
         stream: &Stream,
-        params: &GenerationParameters<VecSeeds>,
+        params: &CPUGenerationParameters,
         variables_d: &mut DeviceBuffer<f32>,
     ) -> anyhow::Result<()> {
         info!("Starting a run...");
@@ -55,12 +55,12 @@ impl GPUGenerator {
 
         // Queue up the commands to the GPU.
 
-        // Need to keep _seed_buffer around so it doesn't get dropped.
-        let (params_raw, _seed_buffer) =
-            unsafe { params.as_rawseeds_async(stream) }.expect("to construct the params");
+        // Need to keep _seed_buffer around so it doesn't get dropped.=
+        let params_d = unsafe { params.as_gpu_params(stream) }.expect("to get gpu params");
+        //    unsafe { params.as_rawseeds_async(stream) }.expect("to construct the params");
 
         unsafe {
-            let params_d = DeviceBox::new(&params_raw).expect("device_box params");
+            let params_raw = params_d.deref();
             cpu_state
                 .copy_to_device_async(stream)
                 .expect("cpu_state_copy_to_device");
@@ -72,7 +72,7 @@ impl GPUGenerator {
                 // slices are passed as two parameters, the pointer and the length.
                 kernel_function<<<grid_size, block_size, 0, stream>>>(
                     gpu_state.as_device_ptr(),
-                    params_d.as_device_ptr(),
+                    *params_raw,
                     variables_d.as_device_ptr(),
                     variables_d.len(),
                 )
@@ -135,7 +135,7 @@ impl GraphGenerator for GPUGenerator {
         sender: Sender<Vec<(u64, u64)>>,
         finisher: Sender<((u64, u64), (u64, u64))>,
         receiver: Receiver<((u64, u64), (u64, u64))>,
-        params: &GenerationParameters<VecSeeds>,
+        params: &CPUGenerationParameters,
     ) -> anyhow::Result<()> {
         let stream = Stream::new(StreamFlags::NON_BLOCKING, None).context("new stream")?;
 
