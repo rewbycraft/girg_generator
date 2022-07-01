@@ -1,11 +1,11 @@
 [workspace]
 
 members = [
+    "girg_generator",
     "fixed-size-buffer",
     "generator/core",
     "generator/common",
     "generator/cpu",
     "generator/gpu/kernel",
     "generator/gpu",
-    "girg_generator",
 ]

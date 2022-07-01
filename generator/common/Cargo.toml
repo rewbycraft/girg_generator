@@ -19,3 +19,4 @@ anyhow = { version = "1", features = [ "backtrace" ] }
 
 [target.'cfg(not(target_os = "cuda"))'.dev-dependencies]
 rstest = "0.12"
+itertools = "0.10.3"

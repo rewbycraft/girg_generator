@@ -1,10 +1,12 @@
+//! GPU based implementation of the graph generator.
+
 #![warn(missing_docs)]
 #![warn(clippy::missing_docs_in_private_items)]
 
 use anyhow::Context;
 use crossbeam_channel::{Receiver, Sender};
 use cust::error::CudaResult;
-use cust::memory::{DeviceBox, GpuBuffer};
+use cust::memory::GpuBuffer;
 use cust::prelude::*;
 use generator_common::generator::GraphGenerator;
 use generator_common::MAX_DIMS;
@@ -13,6 +15,7 @@ use std::sync::Arc;
 use tracing::{debug, info, instrument, warn};
 use generator_common::params::CPUGenerationParameters;
 use std::ops::Deref;
+use generator_common::tiles::{Edge, Tile};
 
 use crate::cudaext::GenerationParametersCudaExt;
 use crate::state::cpu::CPUThreadState;
@@ -22,10 +25,13 @@ mod state;
 
 static PTX: &str = include_str!(env!("KERNEL_PTX_PATH"));
 
+/// Trait defining what arguments we need.
 pub trait GPUGeneratorArguments: Sync + Send {
+    /// Get the index of the CUDA device.
     fn get_device(&self) -> u32;
 }
 
+/// GPU implementation of the graph generator.
 pub struct GPUGenerator {
     module: Module,
     #[allow(dead_code)]
@@ -93,6 +99,9 @@ impl GPUGenerator {
     }
 }
 
+/// Suggested launch configuration.
+///
+/// Returns `(blocks, threads per block)`
 pub fn suggested_launch_configuration() -> CudaResult<(u32, u32)> {
     let module = Module::from_ptx(PTX, &[])?;
     let kernel_function = module.get_function("generator_kernel")?;
@@ -132,9 +141,9 @@ impl GraphGenerator for GPUGenerator {
     #[instrument(skip_all)]
     fn generate(
         &self,
-        sender: Sender<Vec<(u64, u64)>>,
-        finisher: Sender<((u64, u64), (u64, u64))>,
-        receiver: Receiver<((u64, u64), (u64, u64))>,
+        sender: Sender<Vec<Edge>>,
+        finisher: Sender<Tile>,
+        receiver: Receiver<Tile>,
         params: &CPUGenerationParameters,
     ) -> anyhow::Result<()> {
         let stream = Stream::new(StreamFlags::NON_BLOCKING, None).context("new stream")?;
@@ -184,7 +193,7 @@ impl GraphGenerator for GPUGenerator {
                 // Check if this thread is ready for a new tile.
                 if cpu_state.done[tid] {
                     // This thread is done, try and allocate a new tile.
-                    if let Ok(((start_left, start_right), (end_left, end_right))) = receiver.recv()
+                    if let Ok(Tile((start_left, start_right), (end_left, end_right))) = receiver.recv()
                     {
                         debug!(
                             "Allocated tile ({}, {}) -> ({}, {}) to GPU thread {}.",

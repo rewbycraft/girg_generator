@@ -1,8 +1,18 @@
+//! Actual kernel function.
+
 use cuda_std::prelude::*;
 use generator_core::algorithm::generate_edge;
 use generator_core::params::GenerationParameters;
 use generator_core::MAX_DIMS;
 
+/// Main kernel entrypoint for the GPU.
+///
+/// Must be invoked via the [`cust::launch`] macro.
+///
+/// # Arguments
+/// * `ts` - GPU Resident thread state.
+/// * `params` - GPU Resident instance of the [`GenerationParameters`].
+/// * `variables` - Interleaved node variables. See [`generator_common::params::CPUGenerationParameters::compute_interleaved_variables()`].
 #[kernel]
 #[allow(improper_ctypes_definitions, clippy::missing_safety_doc)]
 pub unsafe fn generator_kernel(
@@ -35,12 +45,10 @@ pub unsafe fn generator_kernel(
             ..(((i as usize) * (params.num_dimensions() + 1)) + (params.num_dimensions() + 1))]
     };
 
-    let (start, end) = params.pos_to_tile(ts.get_x(), ts.get_y());
+    let tile = params.pos_to_tile(ts.get_x(), ts.get_y());
 
-    let mut i = ts.get_x();
-    let mut j = ts.get_y();
-
-    loop {
+    let mut failed = false;
+    for (i, j) in tile.into_iter().skip_to(ts.get_x(), ts.get_y()) {
         let ps_i: &[f32] = if params.pregenerate_numbers {
             ps(i)
         } else {
@@ -57,29 +65,15 @@ pub unsafe fn generator_kernel(
         if generate_edge(i, j, w(i), w(j), ps_i, ps_j, &params) {
             if !ts.can_add_edge() {
                 // No more space in buffer, abort!
-                ts.set_done(false);
+                failed = true;
                 break;
             }
             ts.add_edge(i, j);
         }
 
-        // Increment i,j
-        i += 1;
-        if i >= params.v.min(end.0) {
-            i = start.0;
-            j += 1;
-        }
-
         ts.set_x(i);
         ts.set_y(j);
-
-        if j >= params.v.min(end.1) {
-            // We've past the last node.
-
-            ts.set_done(true);
-            ts.set_x(end.0 - 1);
-            ts.set_y(end.1 - 1);
-            break;
-        }
     }
+
+    ts.set_done(!failed);
 }

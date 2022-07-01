@@ -1,3 +1,4 @@
+//! CPU based graph generator implementation.
 #![warn(missing_docs)]
 #![warn(clippy::missing_docs_in_private_items)]
 
@@ -5,17 +6,14 @@ use crossbeam_channel::{Receiver, Sender};
 use generator_common::algorithm::generate_edge;
 use tracing::{debug, info, instrument, warn};
 use generator_common::params::CPUGenerationParameters;
+use generator_common::tiles::{Edge, Tile};
 
 #[inline]
-pub fn worker_function<F: FnMut(u64, u64)>(
-    start: (u64, u64),
-    end: (u64, u64),
+fn process_tile_implementation<F: FnMut(u64, u64)>(
+    tile: Tile,
     params: &CPUGenerationParameters,
     mut cb: F,
 ) {
-    let mut i = start.0;
-    let mut j = start.1;
-
     // Pre-calculate the params for j.
     let ws: Option<Vec<f32>> = if params.pregenerate_numbers {
         Some(params.compute_weights())
@@ -32,7 +30,7 @@ pub fn worker_function<F: FnMut(u64, u64)>(
     p_i_prime.resize(params.num_dimensions(), 0.0f32);
     p_j_prime.resize(params.num_dimensions(), 0.0f32);
 
-    loop {
+    for (i, j) in tile.into_iter() {
         let w_i = ws
             .as_ref()
             .map(|w| *w.get(i as usize).unwrap())
@@ -59,24 +57,10 @@ pub fn worker_function<F: FnMut(u64, u64)>(
         if generate_edge(i, j, w_i, w_j, p_i, p_j, params) {
             cb(i, j)
         }
-
-        // Increment i,j
-        i += 1;
-        if i >= params.v.min(end.0) {
-            i = start.0;
-            j += 1;
-        }
-        if j >= params.v.min(end.1) {
-            // We've past the last node.
-            break;
-        }
-        if i >= end.0 && j >= end.1 {
-            // We're done.
-            break;
-        }
     }
 }
 
+/// CPU based implementation of the graph generator.
 pub struct CPUGenerator {}
 
 impl generator_common::generator::GraphGenerator for CPUGenerator {
@@ -89,15 +73,15 @@ impl generator_common::generator::GraphGenerator for CPUGenerator {
     #[instrument(skip_all)]
     fn generate(
         &self,
-        sender: Sender<Vec<(u64, u64)>>,
-        finisher: Sender<((u64, u64), (u64, u64))>,
-        receiver: Receiver<((u64, u64), (u64, u64))>,
+        sender: Sender<Vec<Edge>>,
+        finisher: Sender<Tile>,
+        receiver: Receiver<Tile>,
         params: &CPUGenerationParameters,
     ) -> anyhow::Result<()> {
         info!("Running!");
-        for (start, end) in receiver {
-            worker(sender.clone(), start, end, params);
-            finisher.send((start, end)).unwrap();
+        for tile in receiver {
+            process_tile_and_submit_results(sender.clone(), tile, params);
+            finisher.send(tile).unwrap();
         }
         drop(sender);
         drop(finisher);
@@ -106,10 +90,9 @@ impl generator_common::generator::GraphGenerator for CPUGenerator {
     }
 }
 
-pub fn worker(
-    sender: Sender<Vec<(u64, u64)>>,
-    start: (u64, u64),
-    end: (u64, u64),
+fn process_tile_and_submit_results(
+    sender: Sender<Vec<Edge>>,
+    tile: Tile,
     params: &CPUGenerationParameters,
 ) {
     let mut pair_queue = Vec::new();
@@ -117,8 +100,8 @@ pub fn worker(
     let mut pair_queue_index = 0usize;
     let mut pair_queue_sends = 0usize;
 
-    info!("Job: {:?} -> {:?}", start, end);
-    crate::worker_function(start, end, params, |i, j| {
+    info!("Job: {:?} -> {:?}", tile.0, tile.1);
+    crate::process_tile_implementation(tile, params, |i, j| {
         pair_queue[pair_queue_index] = (i, j);
         pair_queue_index += 1;
 

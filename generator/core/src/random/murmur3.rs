@@ -1,3 +1,5 @@
+//! Implementation of murmur3 hash.
+
 // Copyright (c) 2020 Stu Small
 //
 // Licensed under the Apache License, Version 2.0
@@ -17,6 +19,7 @@ const R2: u32 = 13;
 const M: u32 = 5;
 const N: u32 = 0xe654_6b64;
 
+/// Hash three [u64] values together using the Murmur3Hash algorithm.
 pub fn murmur3_32_3(s1: u64, s2: u64, s3: u64) -> u32 {
     let seed = 0u32;
     let mut processed = 0;
@@ -51,6 +54,7 @@ pub fn murmur3_32_3(s1: u64, s2: u64, s3: u64) -> u32 {
     finish(state, processed)
 }
 
+/// Hash two [u64] values together using the Murmur3Hash algorithm.
 pub fn murmur3_32_2(s1: u64, s2: u64) -> u32 {
     let seed = 0u32;
     let mut processed = 0;

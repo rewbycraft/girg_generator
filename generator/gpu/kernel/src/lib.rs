@@ -1,3 +1,4 @@
+//! GPU Kernel for the graph generation.
 #![cfg_attr(
     target_os = "cuda",
     feature(register_attr),

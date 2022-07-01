@@ -5,17 +5,18 @@
 #[allow(unused_imports)]
 use cuda_std::GpuFloat;
 
-use crate::params::{GenerationParameters, SeedEnum};
-use crate::random;
+use crate::params::GenerationParameters;
 use no_std_compat::cmp::Ordering::Equal;
+
+/// Distance along the torus.
+fn dist_c(i: f32, j: f32) -> f32 {
+    (i - j).abs().min(1.0f32 - ((i - j).abs()))
+}
 
 /// Computes the distance between two positions of an d-dimensional torus.
 ///
 /// This function assumes the length of the slices is equal to the number of dimensions and that both slices are of equal length.
 pub fn compute_distance(p_i: &[f32], p_j: &[f32]) -> f32 {
-    fn dist_c(i: f32, j: f32) -> f32 {
-        (i - j).abs().min(1.0f32 - ((i - j).abs()))
-    }
     p_i.iter()
         .zip(p_j.iter())
         .map(|(p0, p1)| dist_c(*p0, *p1))

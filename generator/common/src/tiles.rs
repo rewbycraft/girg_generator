@@ -1,12 +1,26 @@
+//! Re-export of [`generator_core::tiles`] with additional iterator.
+
+pub use generator_core::tiles::*;
+
+/// Iterator over all tiles in a graph.
 #[derive(Clone, Debug)]
 pub struct TilesIterator {
+    /// Total number of vertices.
     vertices: u64,
+    /// Size of each tile.
     tile_size: u64,
+    /// Current tile `i` position.
     i: u64,
+    /// Current tile `j` position.
     j: u64,
 }
 
 impl TilesIterator {
+    /// Create new iterator.
+    ///
+    /// # Arguments
+    /// * `max` - The number of vertices.
+    /// * `step` - The size of each tile.
     pub fn new(max: u64, step: u64) -> Self {
         TilesIterator {
             vertices: max,
@@ -16,8 +30,6 @@ impl TilesIterator {
         }
     }
 }
-
-pub type Tile = ((u64, u64), (u64, u64));
 
 impl Iterator for TilesIterator {
     type Item = Tile;
@@ -29,7 +41,7 @@ impl Iterator for TilesIterator {
             let i_next = (self.i + self.tile_size).min(self.vertices);
             let j_next = (self.j + self.tile_size).min(self.vertices);
 
-            let next = ((self.i, self.j), (i_next, j_next));
+            let next = Tile((self.i, self.j), (i_next-1, j_next-1));
 
             self.i = i_next;
             if self.i >= self.vertices {
@@ -60,10 +72,13 @@ mod tests {
         let act = iter.clone().count() as u64;
         assert_eq!(act, exp, "testing amount of tiles");
 
-        let max_x: u64 = iter.clone().map(|((_, _), (x, _))| x).max().unwrap();
-        assert_eq!(max_x, vertices, "testing max_x");
+        let sum_positions: usize = iter.clone().flat_map(|t: Tile| t.into_iter()).count();
+        assert_eq!(sum_positions as u64, vertices * vertices);
 
-        let max_y: u64 = iter.map(|((_, _), (_, x))| x).max().unwrap();
-        assert_eq!(max_y, vertices, "testing max_x");
+        let max_x: u64 = iter.clone().map(|t| t.1.0).max().unwrap();
+        assert_eq!(max_x, vertices-1, "testing max_x");
+
+        let max_y: u64 = iter.map(|t| t.1.1).max().unwrap();
+        assert_eq!(max_y, vertices-1, "testing max_x");
     }
 }

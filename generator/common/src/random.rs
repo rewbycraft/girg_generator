@@ -1,5 +1,14 @@
+//! Re-export of [`generator_core::random`] + function to generate seed values.
+
 pub use generator_core::random::*;
 
+/// Generate seed values.
+///
+/// Generates `n` random [`u64`] values such that no two are the same.
+/// This is important to ensure we don't have two properties that always match.
+///
+/// # Arguments
+/// * `n` - The number of values to generate.
 pub fn generate_seeds(n: usize) -> Vec<u64> {
     use rand::Rng;
 

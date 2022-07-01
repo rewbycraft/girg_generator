@@ -1,3 +1,5 @@
+//! Utilities around thread management.
+
 use crate::generator::{EdgeSender, GraphGenerator};
 use crate::tiles::Tile;
 use crossbeam_channel::{Receiver, Sender};
@@ -5,6 +7,7 @@ use std::thread::JoinHandle;
 use tracing::{info, instrument};
 use crate::params::CPUGenerationParameters;
 
+/// Start a thread to generate tiles.
 pub fn start_generate_tiles_thread(
     sender: Sender<Tile>,
     params: &CPUGenerationParameters,
@@ -13,6 +16,7 @@ pub fn start_generate_tiles_thread(
     std::thread::spawn(move || generate_tiles(sender, &params))
 }
 
+/// Function to generate tiles.
 pub fn generate_tiles(sender: Sender<Tile>, params: &CPUGenerationParameters) {
     info!("Emitting tiles...");
 
@@ -23,6 +27,7 @@ pub fn generate_tiles(sender: Sender<Tile>, params: &CPUGenerationParameters) {
     info!("Tiles are generated!");
 }
 
+/// Start worker threads for a given graph generator.
 pub fn start_workers<T: GraphGenerator>(
     construct_arg: T::ConstructArgument,
     num_workers: usize,
@@ -51,6 +56,7 @@ pub fn start_workers<T: GraphGenerator>(
     handles
 }
 
+/// Single worker thread for graph generation.
 #[instrument(skip_all, fields(tid = _thread_id))]
 pub fn worker_thread<T: GraphGenerator>(
     _thread_id: u64,

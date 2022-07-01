@@ -1,5 +1,6 @@
-#![warn(missing_docs)]
-#![warn(clippy::missing_docs_in_private_items)]
+//TODO: Re-enable missing doc warnings.
+//#![warn(missing_docs)]
+//#![warn(clippy::missing_docs_in_private_items)]
 #![cfg_attr(
 target_os = "cuda",
 feature(register_attr),
@@ -305,7 +306,7 @@ mod tests {
         impl<'a> TestStruct<'a> {
             pub fn new(buffer: Vec<u64>) -> Self {
                 let mut cpu_buffer = FixedSizeCPUBuffer::from(buffer);
-                let borrower = (&mut cpu_buffer).into();
+                let borrower = cpu_buffer.get_ref();
                 let inner = TestInner {
                     borrower,
                 };
